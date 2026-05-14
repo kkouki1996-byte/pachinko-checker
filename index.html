@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="回転率">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="manifest" href="./manifest.json">
+  <title>パチンコ回転率チェッカー</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<div id="tab-bar"></div>
+
+<div id="app">
+
+  <!-- セッション開始前 -->
+  <div id="start-form">
+    <div class="card">
+      <div class="section-title">セッション開始</div>
+      <div class="input-row">
+        <div class="input-group">
+          <label for="start-rot">開始回転数</label>
+          <input type="number" id="start-rot" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+        </div>
+        <div class="input-group">
+          <label for="start-balls">開始持ち玉</label>
+          <input type="number" id="start-balls" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+        </div>
+      </div>
+      <div id="start-error" class="error-msg"></div>
+      <button class="btn btn-start" id="btn-start">▶ セッション開始</button>
+    </div>
+  </div>
+
+  <!-- セッション中 -->
+  <div id="session-view">
+
+    <div class="card" id="rate-display">
+      <div class="rate-label">累計回転率</div>
+      <div>
+        <span class="rate-value no-data" id="rate-value">データなし</span>
+        <span class="rate-unit" id="rate-unit"></span>
+      </div>
+    </div>
+
+    <div id="hit-banner"></div>
+
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-label">自分の累計回転数</div>
+        <div class="stat-value" id="stat-rot">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">現在持ち玉</div>
+        <div class="stat-value" id="stat-balls">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">現在回転数</div>
+        <div class="stat-value" id="stat-cur-rot">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">開始回転数</div>
+        <div class="stat-value" id="stat-start-rot">0</div>
+      </div>
+      <div class="stat-item" style="grid-column: 1 / -1">
+        <div class="stat-label">回転時速（回転/h）</div>
+        <div class="stat-value" id="stat-speed">---</div>
+      </div>
+    </div>
+
+    <!-- 当たり情報サマリー -->
+    <div id="hit-summary" style="display:none" class="card">
+      <div style="text-align:center;margin-bottom:8px">
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">平均1R出玉</div>
+        <div style="font-size:48px;font-weight:700;font-family:var(--font-mono);color:var(--accent-yellow)" id="summary-1r">---</div>
+        <div style="font-size:13px;color:var(--text-secondary)">玉/R</div>
+      </div>
+      <button id="hit-detail-toggle" style="background:none;border:none;color:var(--text-secondary);font-size:13px;width:100%;cursor:pointer;padding:4px 0">
+        詳細 ▼
+      </button>
+      <div id="hit-detail" style="display:none;margin-top:8px">
+        <div class="modal-row"><span class="label">合計獲得出玉</span><span class="value" id="summary-gained">---</span></div>
+        <div class="modal-row"><span class="label">合計獲得R数</span><span class="value" id="summary-r">---</span></div>
+        <div class="modal-row"><span class="label">当たり回数</span><span class="value" id="summary-count">---</span></div>
+      </div>
+    </div>
+
+    <button class="btn" id="btn-trial"
+            style="background:#2a2a45;border:1px solid var(--border);color:var(--text-secondary);margin-bottom:10px">
+      📊 仮計算（累計に影響なし）
+    </button>
+
+    <button class="btn btn-hit" id="btn-hit">🎯 当たり記録</button>
+    <button class="btn btn-sm" id="btn-hit-undo" disabled
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary);margin-bottom:10px">
+      ↩ 当たり記録を取り消し
+    </button>
+
+    <button class="btn btn-end" id="btn-end">セッション終了</button>
+
+    <div id="history-section">
+      <button id="history-toggle">履歴 ▼</button>
+      <div id="history-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 当たり記録モーダル -->
+<div class="modal-overlay" id="hit-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">🎯 当たり記録</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;text-align:center">
+      当たった時点の数値を入力してください
+    </p>
+    <div class="modal-input-row">
+      <label for="hit-rot-input">現在回転数</label>
+      <input type="number" id="hit-rot-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    </div>
+    <div class="modal-input-row">
+      <label for="hit-balls-input">現在持ち玉</label>
+      <input type="number" id="hit-balls-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    </div>
+    <div id="hit-modal-error" class="error-msg"></div>
+    <button class="btn btn-hit" id="hit-modal-confirm" style="margin-bottom:10px">記録する</button>
+    <button class="btn btn-sm" id="hit-modal-cancel"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">
+      キャンセル
+    </button>
+  </div>
+</div>
+
+<!-- 仮計算モーダル -->
+<div class="modal-overlay" id="trial-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">📊 仮計算</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;text-align:center">
+      現在の数値を入力して確認。累計には影響しません。
+    </p>
+    <div class="modal-input-row">
+      <label for="trial-rot">現在回転数</label>
+      <input type="number" id="trial-rot" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    </div>
+    <div class="modal-input-row">
+      <label for="trial-balls">現在持ち玉</label>
+      <input type="number" id="trial-balls" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    </div>
+    <div id="trial-error" class="error-msg"></div>
+    <button class="btn btn-primary" id="trial-calc" style="margin-bottom:10px">計算する</button>
+    <div id="trial-result" style="display:none;margin-bottom:12px">
+      <div class="divider"></div>
+      <div class="modal-row">
+        <span class="label">区間回転数</span>
+        <span class="value" id="trial-sec-rot">---</span>
+      </div>
+      <div class="modal-row">
+        <span class="label">区間使用玉</span>
+        <span class="value" id="trial-sec-used">---</span>
+      </div>
+      <div class="modal-row" id="trial-rate-row">
+        <span class="label">区間回転率</span>
+        <span class="value" style="color:var(--accent)" id="trial-rate">---</span>
+      </div>
+      <div class="modal-row">
+        <span class="label">累計回転率（仮）</span>
+        <span class="value" style="color:var(--accent-green)" id="trial-total-rate">---</span>
+      </div>
+    </div>
+    <button class="btn btn-sm" id="trial-close"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">
+      閉じる
+    </button>
+  </div>
+</div>
+
+<!-- 出玉確定モーダル -->
+<div class="modal-overlay" id="payout-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">🔚 出玉確定</div>
+    <div class="modal-input-row">
+      <label for="payout-balls-input">出玉確定時の持ち玉</label>
+      <input type="number" id="payout-balls-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    </div>
+    <div class="modal-input-row">
+      <label for="payout-r-input">獲得R数（任意）</label>
+      <input type="number" id="payout-r-input" inputmode="numeric" pattern="[0-9]*" placeholder="空欄OK" min="0">
+    </div>
+    <div class="modal-input-row">
+      <label for="payout-endrot-input">時短終了後の回転数（必須）</label>
+      <input type="number" id="payout-endrot-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    </div>
+    <div id="payout-error" class="error-msg"></div>
+    <button class="btn btn-payout" id="payout-confirm" style="margin-bottom:10px">確定</button>
+    <button class="btn btn-sm" id="payout-cancel"
+            style="background:transparent;border:1px solid var(--accent-red);color:var(--accent-red)">
+      ↩ 当たり記録を取り消す（入力をやめる）
+    </button>
+  </div>
+</div>
+
+<!-- セッション終了モーダル -->
+<div class="modal-overlay" id="end-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">セッション結果</div>
+    <div class="modal-row"><span class="label">最終差玉</span><span class="value" id="end-diff">---</span></div>
+    <div class="modal-row"><span class="label">累計回転数</span><span class="value" id="end-rot">---</span></div>
+    <div class="modal-row"><span class="label">累計使用玉</span><span class="value" id="end-used">---</span></div>
+    <div class="modal-row"><span class="label">累計回転率</span><span class="value" id="end-rate">---</span></div>
+    <div class="modal-row"><span class="label">回転時速</span><span class="value" id="end-speed">---</span></div>
+    <div class="modal-row" id="end-avg1r-row" style="display:none">
+      <span class="label">平均1R出玉</span><span class="value" id="end-avg1r">---</span>
+    </div>
+    <div class="divider"></div>
+    <div id="end-history-label" style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">当たり履歴</div>
+    <div id="end-history"></div>
+    <div style="margin-top:20px">
+      <button class="btn btn-end" id="end-confirm" style="margin-bottom:10px">OK（リセット）</button>
+      <button class="btn btn-sm" id="end-cancel"
+              style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">戻る</button>
+    </div>
+  </div>
+</div>
+
+<!-- 履歴削除確認モーダル -->
+<div class="modal-overlay" id="del-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">履歴を削除しますか？</div>
+    <p style="font-size:14px;color:var(--text-secondary);text-align:center;margin-bottom:20px" id="del-modal-desc"></p>
+    <button class="btn btn-end" id="del-confirm" style="margin-bottom:10px">削除する</button>
+    <button class="btn btn-sm" id="del-cancel"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">キャンセル</button>
+  </div>
+</div>
+
+<script src="./app.js"></script>
+</body>
+</html>
