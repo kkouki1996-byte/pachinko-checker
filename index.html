@@ -183,15 +183,15 @@
   <div class="modal-sheet">
     <div class="modal-title">🔚 出玉確定</div>
     <div class="modal-input-row">
-      <label for="payout-balls-input">出玉確定時の持ち玉</label>
+      <label for="payout-balls-input" style="color:#ffffff;font-size:16px;font-weight:700">出玉確定時の持ち玉</label>
       <input type="number" id="payout-balls-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
     </div>
     <div class="modal-input-row">
-      <label for="payout-r-input">獲得R数（任意）</label>
+      <label for="payout-r-input" style="color:#ffffff;font-size:16px;font-weight:700">獲得R数（任意）</label>
       <input type="number" id="payout-r-input" inputmode="numeric" pattern="[0-9]*" placeholder="空欄OK" min="0">
     </div>
     <div class="modal-input-row">
-      <label for="payout-endrot-input">時短終了後の回転数（必須）</label>
+      <label for="payout-endrot-input" style="color:#ffffff;font-size:16px;font-weight:700">時短終了後の回転数（必須）</label>
       <input type="number" id="payout-endrot-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
     </div>
     <div id="payout-error" class="error-msg"></div>
@@ -199,6 +199,21 @@
     <button class="btn btn-sm" id="payout-cancel"
             style="background:transparent;border:1px solid var(--accent-red);color:var(--accent-red)">
       ↩ 当たり記録を取り消す（入力をやめる）
+    </button>
+  </div>
+</div>
+
+<!-- セッション終了確認モーダル -->
+<div class="modal-overlay" id="end-confirm-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">セッションを終了しますか？</div>
+    <p style="font-size:14px;color:var(--text-secondary);text-align:center;margin-bottom:20px">
+      終了すると結果が表示されます。
+    </p>
+    <button class="btn btn-end" id="end-confirm-yes" style="margin-bottom:10px">終了して結果を見る</button>
+    <button class="btn btn-sm" id="end-confirm-no"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">
+      キャンセル
     </button>
   </div>
 </div>

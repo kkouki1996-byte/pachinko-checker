@@ -638,7 +638,16 @@ function initEvents() {
   document.getElementById('btn-hit').addEventListener('click', openHitModal);
   document.getElementById('btn-hit-undo').addEventListener('click', handleHitUndo);
 
-  document.getElementById('btn-end').addEventListener('click', openEndModal);
+  document.getElementById('btn-end').addEventListener('click', () => {
+    document.getElementById('end-confirm-modal').classList.add('open');
+  });
+  document.getElementById('end-confirm-yes').addEventListener('click', () => {
+    document.getElementById('end-confirm-modal').classList.remove('open');
+    openEndModal();
+  });
+  document.getElementById('end-confirm-no').addEventListener('click', () => {
+    document.getElementById('end-confirm-modal').classList.remove('open');
+  });
   document.getElementById('btn-trial').addEventListener('click', openTrialModal);
   document.getElementById('history-toggle').addEventListener('click', toggleHistory);
 
