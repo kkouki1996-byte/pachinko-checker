@@ -705,10 +705,52 @@ function registerSW() {
   }
 }
 
+// ===== 画面復帰時に当たり中なら出玉モーダルを自動表示 =====
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    const tab = getTab();
+    if (tab && tab.started && tab.isHit) {
+      openPayoutModal();
+    }
+  }
+});
+
+// ===== スワイプでタブ切り替え =====
+function initSwipe() {
+  let startX = 0;
+  let startY = 0;
+  const app = document.getElementById('app');
+
+  app.addEventListener('touchstart', (e) => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+
+  app.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    // 横方向のスワイプのみ（縦スクロールと区別）
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) {
+      if (dx < 0 && state.activeTab < NUM_TABS - 1) {
+        // 左スワイプ → 次のタブ
+        state.activeTab++;
+      } else if (dx > 0 && state.activeTab > 0) {
+        // 右スワイプ → 前のタブ
+        state.activeTab--;
+      } else {
+        return;
+      }
+      saveState();
+      renderAll();
+    }
+  }, { passive: true });
+}
+
 // ===== 起動 =====
 document.addEventListener('DOMContentLoaded', () => {
   loadState();
   initEvents();
+  initSwipe();
   renderAll();
   registerSW();
 });
