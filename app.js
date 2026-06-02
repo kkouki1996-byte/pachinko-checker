@@ -25,6 +25,7 @@ function createTabData(name) {
     hitPrevRot: 0,
     hitPrevBalls: 0,
     hitSnapshot: null,
+    deletedBackup: null,
     lastSecRate: null,
     rateWarnAcknowledged: false,
     sessionStart: null,
@@ -192,6 +193,10 @@ function renderHitSummary(tab) {
 }
 
 function renderHistory(tab) {
+  // 復元ボタンの表示制御
+  const restoreBtn = document.getElementById('btn-restore-deleted');
+  if (restoreBtn) restoreBtn.style.display = tab.deletedBackup ? 'block' : 'none';
+
   const toggle = document.getElementById('history-toggle');
   const list = document.getElementById('history-list');
   toggle.textContent = tab.historyOpen ? '履歴 ▲' : '履歴 ▼';
@@ -212,17 +217,23 @@ function renderHistory(tab) {
     div.style.justifyContent = 'space-between';
     div.style.alignItems = 'center';
 
-    // 区間情報（使用k / 回転数 / 回転率）
-    let subLine = '';
-    if (h.usedK !== null && h.usedK !== undefined) subLine += `${h.usedK}k`;
-    if (h.secRot !== undefined && h.secRot > 0) subLine += ` / ${h.secRot}回`;
-    if (h.secRate !== null && h.secRate !== undefined) subLine += ` / ${h.secRate}回転/k`;
-
+    // 区間情報を3行で表示
     let info = '';
-    if (subLine) {
-      info += `<span style="font-size:12px;color:var(--text-secondary)">${subLine}</span><br>`;
+    // 1行目：使用k
+    if (h.usedK !== null && h.usedK !== undefined) {
+      info += `<span style="font-size:13px;color:#a0a0c0">${h.usedK}k 使用</span><br>`;
     }
-    info += `<span class="h-balls" style="font-size:15px">${h.gained >= 0 ? '+' : ''}${h.gained.toLocaleString()}玉</span>`;
+    // 2行目：回転数
+    if (h.secRot !== undefined && h.secRot > 0) {
+      info += `<span style="font-size:13px;color:#a0a0c0">${h.secRot}回</span>`;
+      // 平均回転率
+      if (h.secRate !== null && h.secRate !== undefined) {
+        info += `<span style="font-size:13px;color:var(--accent)">　平均${h.secRate}</span>`;
+      }
+      info += `<br>`;
+    }
+    // 3行目：出玉
+    info += `<span class="h-balls" style="font-size:16px;font-weight:700">${h.gained >= 0 ? '+' : ''}${h.gained.toLocaleString()}玉</span>`;
     if (h.per1r !== null && h.per1r !== undefined) {
       info += `　<span class="h-1r">1R：${Math.round(h.per1r)}玉</span>`;
     }
@@ -498,6 +509,17 @@ function handleDeleteConfirm() {
   const tab = getTab();
   const h = tab.history[pendingDeleteIndex];
 
+  // 削除前の状態を丸ごと保存（元に戻す用）
+  tab.deletedBackup = {
+    history: JSON.parse(JSON.stringify(tab.history)),
+    prevRot: tab.prevRot,
+    prevBalls: tab.prevBalls,
+    curRot: tab.curRot,
+    curBalls: tab.curBalls,
+    totalRot: tab.totalRot,
+    totalUsed: tab.totalUsed,
+  };
+
   // 削除する履歴が最新（末尾）の場合のみprev状態を復元
   if (pendingDeleteIndex === tab.history.length - 1) {
     if (h.snapPrevRot !== undefined) tab.prevRot = h.snapPrevRot;
@@ -507,7 +529,6 @@ function handleDeleteConfirm() {
     tab.curRot = h.snapPrevRot !== undefined ? h.snapPrevRot : tab.prevRot;
     tab.curBalls = h.snapPrevBalls !== undefined ? h.snapPrevBalls : tab.prevBalls;
   } else {
-    // 途中の履歴削除は累計のみ差し引く
     if (h.secRot !== undefined && h.secRot > 0) {
       tab.totalRot = Math.max(0, tab.totalRot - h.secRot);
     }
@@ -518,6 +539,23 @@ function handleDeleteConfirm() {
 
   tab.history.splice(pendingDeleteIndex, 1);
   closeDeleteModal();
+  saveState();
+  renderSessionView(tab);
+}
+
+// ===== 削除した履歴を元に戻す =====
+function handleRestoreDeleted() {
+  const tab = getTab();
+  if (!tab.deletedBackup) return;
+  const b = tab.deletedBackup;
+  tab.history = b.history;
+  tab.prevRot = b.prevRot;
+  tab.prevBalls = b.prevBalls;
+  tab.curRot = b.curRot;
+  tab.curBalls = b.curBalls;
+  tab.totalRot = b.totalRot;
+  tab.totalUsed = b.totalUsed;
+  tab.deletedBackup = null;
   saveState();
   renderSessionView(tab);
 }
@@ -534,7 +572,7 @@ function openEndModal() {
   diffEl.className = 'value ' + (diffBalls >= 0 ? 'green' : 'red');
 
   document.getElementById('end-rot').textContent = tab.totalRot.toLocaleString() + '回転';
-  document.getElementById('end-used').textContent = tab.totalUsed.toLocaleString() + '玉';
+  document.getElementById('end-used').textContent = (tab.totalUsed / BALLS_PER_1K).toFixed(1) + 'k';
   document.getElementById('end-rate').textContent = rate !== null ? formatRate(rate) + '回転/k' : '---';
   document.getElementById('end-speed').textContent = speed !== null ? speed.toLocaleString() + '回転/h' : '---';
 
@@ -603,8 +641,9 @@ function handleTrialCalc() {
   const secRot = rot - tab.prevRot;
   const secUsed = tab.prevBalls - balls;
 
-  document.getElementById('trial-sec-rot').textContent = secRot + '回転';
-  document.getElementById('trial-sec-used').textContent = secUsed.toLocaleString() + '玉';
+  document.getElementById('trial-sec-rot').textContent = secRot + '回';
+  const secUsedK = secUsed > 0 ? (secUsed / BALLS_PER_1K).toFixed(1) + 'k' : secUsed.toLocaleString() + '玉';
+  document.getElementById('trial-sec-used').textContent = secUsedK;
 
   const secRate = (secRot > 0 && secUsed > 0) ? calcRate(secRot, secUsed) : null;
   const rateRow = document.getElementById('trial-rate-row');
@@ -686,6 +725,7 @@ function initEvents() {
 
   // 履歴削除モーダル
   document.getElementById('del-confirm').addEventListener('click', handleDeleteConfirm);
+  document.getElementById('btn-restore-deleted').addEventListener('click', handleRestoreDeleted);
   document.getElementById('del-cancel').addEventListener('click', closeDeleteModal);
   document.getElementById('del-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteModal(); });
 
