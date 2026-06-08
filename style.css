@@ -364,11 +364,11 @@ body {
   margin: 12px 0;
 }
 .modal-input-row label {
-  font-size: 16px;
-  font-weight: 700;
-  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  color: #e8e8f5;
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 .modal-input-row input {
   background: var(--bg-input);

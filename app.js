@@ -4,6 +4,10 @@ const NUM_TABS = 3;
 const STORAGE_KEY = 'pachinko_checker_v2';
 const MAX_SEC_ROT = 10000;      // 区間回転数の上限（5桁異常値）
 const RATE_CHANGE_LIMIT = 10;   // 回転率の警告変動幅
+const KO_DEFAULT_BALLS = 280;   // 小当たりデフォルト出玉
+const KO_DEFAULT_R = 2;         // 小当たりデフォルトR数
+const CASH_PER_UNIT = 500;      // 現金1単位（円）
+const BALLS_PER_CASH = 125;     // 500円あたりの玉数
 
 // ===== 初期タブデータ =====
 function createTabData(name) {
@@ -26,6 +30,7 @@ function createTabData(name) {
     hitPrevBalls: 0,
     hitSnapshot: null,
     deletedBackup: null,
+    cashInvested: 0,
     lastSecRate: null,
     rateWarnAcknowledged: false,
     sessionStart: null,
@@ -115,7 +120,9 @@ function renderAll() {
   document.getElementById('session-view').style.display = tab.started ? 'block' : 'none';
   if (!tab.started) {
     document.getElementById('start-rot').value = '';
-    document.getElementById('start-balls').value = '';
+    document.getElementById('start-chodama').value = '';
+    document.getElementById('start-mochidama').value = '';
+    document.getElementById('start-total').textContent = '0';
     clearError('start-error');
   } else {
     renderSessionView(tab);
@@ -157,10 +164,12 @@ function renderSessionView(tab) {
   }
 
   document.getElementById('btn-hit').disabled = tab.isHit;
+  document.getElementById('btn-kohit').disabled = tab.isHit;
   document.getElementById('btn-hit-undo').disabled = !tab.isHit;
 
   renderHistory(tab);
   renderHitSummary(tab);
+  renderCashAmount(tab);
 }
 
 // ===== 当たりサマリー描画 =====
@@ -207,6 +216,11 @@ function renderHistory(tab) {
     list.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:14px;text-align:center">履歴なし</div>';
     return;
   }
+  // 編集ヒント
+  const hint = document.createElement('div');
+  hint.style.cssText = 'padding:8px 16px;font-size:11px;color:var(--text-muted);text-align:center;border-bottom:1px solid var(--border);';
+  hint.textContent = '記録をタップで編集 / 🗑で削除';
+  list.appendChild(hint);
 
   // 新しい順（インデックスは元配列基準）
   [...tab.history].reverse().forEach((h, revIdx) => {
@@ -219,6 +233,10 @@ function renderHistory(tab) {
 
     // 区間情報を3行で表示
     let info = '';
+    // 小当たりバッジ
+    if (h.isKo) {
+      info += `<span style="font-size:11px;color:#2fc5f7;font-weight:700">✨小当たり</span><br>`;
+    }
     // 1行目：使用k
     if (h.usedK !== null && h.usedK !== undefined) {
       info += `<span style="font-size:13px;color:#a0a0c0">${h.usedK}k 使用</span><br>`;
@@ -240,6 +258,9 @@ function renderHistory(tab) {
 
     const infoSpan = document.createElement('span');
     infoSpan.innerHTML = info;
+    infoSpan.style.cursor = 'pointer';
+    infoSpan.style.flex = '1';
+    infoSpan.addEventListener('click', () => openEditModal(realIdx));
 
     const delBtn = document.createElement('button');
     delBtn.textContent = '🗑';
@@ -255,17 +276,20 @@ function renderHistory(tab) {
 // ===== セッション開始 =====
 function handleStart() {
   const rotVal = document.getElementById('start-rot').value.trim();
-  const ballsVal = document.getElementById('start-balls').value.trim();
-  if (rotVal === '' || ballsVal === '') {
-    showError('start-error', '回転数と持ち玉を入力してください');
+  const choVal = document.getElementById('start-chodama').value.trim();
+  const mochiVal = document.getElementById('start-mochidama').value.trim();
+  if (rotVal === '') {
+    showError('start-error', '開始回転数を入力してください');
     return;
   }
   const rot = parseInt(rotVal, 10);
-  const balls = parseInt(ballsVal, 10);
-  if (isNaN(rot) || isNaN(balls) || rot < 0 || balls < 0) {
+  const cho = choVal === '' ? 0 : parseInt(choVal, 10);
+  const mochi = mochiVal === '' ? 0 : parseInt(mochiVal, 10);
+  if (isNaN(rot) || isNaN(cho) || isNaN(mochi) || rot < 0 || cho < 0 || mochi < 0) {
     showError('start-error', '正しい数値を入力してください');
     return;
   }
+  const balls = cho + mochi; // 貯玉＋持ち玉の合計
   clearError('start-error');
   const tab = getTab();
   tab.started = true;
@@ -281,10 +305,18 @@ function handleStart() {
   tab.isHit = false;
   tab.hitRot = 0;
   tab.hitBalls = 0;
+  tab.cashInvested = 0;
   tab.sessionStart = Date.now();
   tab.historyOpen = false;
   saveState();
   renderAll();
+}
+
+// 開始フォームの合計をリアルタイム表示
+function updateStartTotal() {
+  const cho = parseInt(document.getElementById('start-chodama').value, 10) || 0;
+  const mochi = parseInt(document.getElementById('start-mochidama').value, 10) || 0;
+  document.getElementById('start-total').textContent = (cho + mochi).toLocaleString();
 }
 
 // ===== 当たり記録モーダル =====
@@ -292,11 +324,14 @@ function openHitModal() {
   document.getElementById('hit-rot-input').value = '';
   document.getElementById('hit-balls-input').value = '';
   clearError('hit-modal-error');
+  getTab().rateWarnAcknowledged = false;
   document.getElementById('hit-modal').classList.add('open');
 }
 
 function closeHitModal() {
   document.getElementById('hit-modal').classList.remove('open');
+  document.getElementById('hit-modal-confirm').textContent = '記録する';
+  clearError('hit-modal-error');
 }
 
 function handleHitConfirm() {
@@ -340,7 +375,8 @@ function handleHitConfirm() {
         if (!tab.rateWarnAcknowledged) {
           tab.rateWarnAcknowledged = true;
           showError('hit-modal-error',
-            `区間回転率が${newRate.toFixed(1)}回転/k（前回${tab.lastSecRate.toFixed(1)}）と大きく変動しています。問題なければもう一度「記録する」を押してください`);
+            `⚠️ 回転率が${newRate.toFixed(1)}（前回${tab.lastSecRate.toFixed(1)}）と大きく変動。確認OKなら再度「記録する」をタップ`);
+          document.getElementById('hit-modal-confirm').textContent = '⚠️ それでも記録する';
           return;
         }
       }
@@ -378,11 +414,143 @@ function handleHitConfirm() {
   tab.hitBalls = balls;
   tab.isHit = true;
 
+  document.getElementById('hit-modal-confirm').textContent = '記録する';
   closeHitModal();
   saveState();
   renderSessionView(tab);
   // 即座に出玉入力モーダルへ移行
   openPayoutModal();
+}
+
+// ===== 現金投資モーダル =====
+function openCashModal() {
+  const tab = getTab();
+  document.getElementById('cash-zandama-input').value = '';
+  renderCashAmount(tab);
+  document.getElementById('cash-modal').classList.add('open');
+}
+
+function closeCashModal() {
+  document.getElementById('cash-modal').classList.remove('open');
+}
+
+function renderCashAmount(tab) {
+  document.getElementById('cash-amount').textContent = tab.cashInvested.toLocaleString() + '円';
+  const label = document.getElementById('cash-total-label');
+  if (label) label.textContent = tab.cashInvested.toLocaleString();
+}
+
+function handleCashPlus() {
+  const tab = getTab();
+  tab.cashInvested += CASH_PER_UNIT;
+  saveState();
+  renderCashAmount(tab);
+}
+
+function handleCashMinus() {
+  const tab = getTab();
+  tab.cashInvested = Math.max(0, tab.cashInvested - CASH_PER_UNIT);
+  saveState();
+  renderCashAmount(tab);
+}
+
+// ===== 小当たり記録モーダル =====
+function openKohitModal() {
+  document.getElementById('kohit-rot-input').value = '';
+  document.getElementById('kohit-balls-input').value = '';
+  document.getElementById('kohit-payout-input').value = KO_DEFAULT_BALLS;
+  document.getElementById('kohit-r-input').value = KO_DEFAULT_R;
+  clearError('kohit-modal-error');
+  document.getElementById('kohit-modal').classList.add('open');
+}
+
+function closeKohitModal() {
+  document.getElementById('kohit-modal').classList.remove('open');
+}
+
+function handleKohitConfirm() {
+  const rotVal = document.getElementById('kohit-rot-input').value.trim();
+  const ballsVal = document.getElementById('kohit-balls-input').value.trim();
+  const payoutVal = document.getElementById('kohit-payout-input').value.trim();
+  const rVal = document.getElementById('kohit-r-input').value.trim();
+  clearError('kohit-modal-error');
+
+  if (rotVal === '' || ballsVal === '') {
+    showError('kohit-modal-error', '回転数と持ち玉を入力してください');
+    return;
+  }
+  const rot = parseInt(rotVal, 10);
+  const curBalls = parseInt(ballsVal, 10);
+  const koPayout = payoutVal === '' ? KO_DEFAULT_BALLS : parseInt(payoutVal, 10);
+  const koR = rVal === '' ? KO_DEFAULT_R : parseInt(rVal, 10);
+
+  if (isNaN(rot) || isNaN(curBalls) || rot < 0 || curBalls < 0) {
+    showError('kohit-modal-error', '正しい数値を入力してください');
+    return;
+  }
+
+  const tab = getTab();
+  if (rot <= tab.prevRot) {
+    showError('kohit-modal-error', `回転数は前回(${tab.prevRot})より大きい値を入力してください`);
+    return;
+  }
+
+  // 当選時の持ち玉 = 現在持ち玉 - 小当たり出玉
+  const hitBalls = curBalls - koPayout;
+
+  // 通常区間（前回 → 当選時）の計算
+  const secRot = rot - tab.prevRot;
+  const secUsedBalls = tab.prevBalls - hitBalls;
+  const usedK = secUsedBalls > 0 ? (secUsedBalls / BALLS_PER_1K).toFixed(1) : null;
+  const secRate = (secRot > 0 && secUsedBalls > 0)
+    ? Math.round(secRot / (secUsedBalls / BALLS_PER_1K) * 10) / 10 : null;
+
+  // 累計に加算
+  const snapPrevRot = tab.prevRot;
+  const snapPrevBalls = tab.prevBalls;
+  const snapTotalRot = tab.totalRot;
+  const snapTotalUsed = tab.totalUsed;
+
+  if (secUsedBalls > 0) {
+    tab.totalRot += secRot;
+    tab.totalUsed += secUsedBalls;
+  } else if (secRot > 0) {
+    tab.totalRot += secRot;
+  }
+
+  const per1r = koR > 0 ? koPayout / koR : null;
+
+  // 履歴に追加（小当たりフラグ付き）
+  tab.history.push({
+    isKo: true,
+    hitRot: rot,
+    hitBalls,
+    payoutBalls: curBalls,
+    gained: koPayout,
+    r: koR > 0 ? koR : null,
+    per1r,
+    endRot: rot,
+    secRot,
+    secUsedBalls,
+    usedK,
+    secRate,
+    snapPrevRot,
+    snapPrevBalls,
+    snapTotalRot,
+    snapTotalUsed,
+  });
+
+  // 状態更新（小当たりは即終了、現在値を更新）
+  tab.curRot = rot;
+  tab.prevRot = rot;
+  tab.curBalls = curBalls;
+  tab.prevBalls = curBalls;
+
+  if (secRate !== null) tab.lastSecRate = secRate;
+
+  closeKohitModal();
+  saveState();
+  renderSessionView(tab);
 }
 
 // ===== 当たり記録取り消し =====
@@ -485,6 +653,103 @@ function handlePayoutConfirm() {
   if (secRate !== null) tab.lastSecRate = secRate;
 
   closePayoutModal();
+  saveState();
+  renderSessionView(tab);
+}
+
+// ===== 履歴編集モーダル =====
+let pendingEditIndex = null;
+
+function openEditModal(idx) {
+  const tab = getTab();
+  const h = tab.history[idx];
+  pendingEditIndex = idx;
+  document.getElementById('edit-hit-rot').value = h.hitRot;
+  document.getElementById('edit-hit-balls').value = h.hitBalls;
+  document.getElementById('edit-payout-balls').value = h.payoutBalls;
+  document.getElementById('edit-endrot').value = h.endRot !== undefined && h.endRot !== null ? h.endRot : '';
+  document.getElementById('edit-r').value = h.r !== undefined && h.r !== null ? h.r : '';
+  clearError('edit-error');
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+  pendingEditIndex = null;
+}
+
+function handleEditConfirm() {
+  if (pendingEditIndex === null) return;
+  clearError('edit-error');
+
+  const hitRot = parseInt(document.getElementById('edit-hit-rot').value.trim(), 10);
+  const hitBalls = parseInt(document.getElementById('edit-hit-balls').value.trim(), 10);
+  const payoutBalls = parseInt(document.getElementById('edit-payout-balls').value.trim(), 10);
+  const endRotVal = document.getElementById('edit-endrot').value.trim();
+  const rVal = document.getElementById('edit-r').value.trim();
+
+  if (isNaN(hitRot) || isNaN(hitBalls) || isNaN(payoutBalls)) {
+    showError('edit-error', '回転数と持ち玉を正しく入力してください');
+    return;
+  }
+  if (endRotVal === '') {
+    showError('edit-error', '時短終了後の回転数を入力してください');
+    return;
+  }
+  const endRot = parseInt(endRotVal, 10);
+  if (isNaN(endRot) || endRot < 0) {
+    showError('edit-error', '時短終了後の回転数を正しく入力してください');
+    return;
+  }
+
+  const tab = getTab();
+  const h = tab.history[pendingEditIndex];
+
+  // 古い区間値を累計から引く
+  if (h.secRot !== undefined && h.secRot > 0) tab.totalRot = Math.max(0, tab.totalRot - h.secRot);
+  if (h.secUsedBalls !== undefined && h.secUsedBalls > 0) tab.totalUsed = Math.max(0, tab.totalUsed - h.secUsedBalls);
+
+  // 新しい値で再計算
+  const gained = payoutBalls - hitBalls;
+  let per1r = null;
+  let r = null;
+  if (rVal !== '') {
+    const rNum = parseInt(rVal, 10);
+    if (!isNaN(rNum) && rNum > 0) { r = rNum; per1r = gained / rNum; }
+  }
+
+  const secRot = hitRot - h.snapPrevRot;
+  const secUsedBalls = h.snapPrevBalls - hitBalls;
+  const usedK = secUsedBalls > 0 ? (secUsedBalls / BALLS_PER_1K).toFixed(1) : null;
+  const secRate = (secRot > 0 && secUsedBalls > 0)
+    ? Math.round(secRot / (secUsedBalls / BALLS_PER_1K) * 10) / 10 : null;
+
+  // 履歴を更新
+  h.hitRot = hitRot;
+  h.hitBalls = hitBalls;
+  h.payoutBalls = payoutBalls;
+  h.endRot = endRot;
+  h.gained = gained;
+  h.r = r;
+  h.per1r = per1r;
+  h.secRot = secRot;
+  h.secUsedBalls = secUsedBalls;
+  h.usedK = usedK;
+  h.secRate = secRate;
+
+  // 新しい区間値を累計に足す
+  if (secRot > 0) tab.totalRot += secRot;
+  if (secUsedBalls > 0) tab.totalUsed += secUsedBalls;
+
+  // 最新履歴なら現在値も更新
+  if (pendingEditIndex === tab.history.length - 1) {
+    tab.curRot = endRot;
+    tab.prevRot = endRot;
+    tab.curBalls = payoutBalls;
+    tab.prevBalls = payoutBalls;
+  }
+
+  closeEditModal();
   saveState();
   renderSessionView(tab);
 }
@@ -675,6 +940,10 @@ function toggleHistory() {
 function initEvents() {
   document.getElementById('btn-start').addEventListener('click', handleStart);
   document.getElementById('btn-hit').addEventListener('click', openHitModal);
+  document.getElementById('btn-kohit').addEventListener('click', openKohitModal);
+  document.getElementById('kohit-modal-confirm').addEventListener('click', handleKohitConfirm);
+  document.getElementById('kohit-modal-cancel').addEventListener('click', closeKohitModal);
+  document.getElementById('kohit-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeKohitModal(); });
   document.getElementById('btn-hit-undo').addEventListener('click', handleHitUndo);
 
   document.getElementById('btn-end').addEventListener('click', () => {
@@ -688,6 +957,11 @@ function initEvents() {
     document.getElementById('end-confirm-modal').classList.remove('open');
   });
   document.getElementById('btn-trial').addEventListener('click', openTrialModal);
+  document.getElementById('btn-cash').addEventListener('click', openCashModal);
+  document.getElementById('cash-plus').addEventListener('click', handleCashPlus);
+  document.getElementById('cash-minus').addEventListener('click', handleCashMinus);
+  document.getElementById('cash-close').addEventListener('click', closeCashModal);
+  document.getElementById('cash-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeCashModal(); });
   document.getElementById('history-toggle').addEventListener('click', toggleHistory);
 
   // 当たりサマリー詳細トグル
@@ -726,6 +1000,11 @@ function initEvents() {
   // 履歴削除モーダル
   document.getElementById('del-confirm').addEventListener('click', handleDeleteConfirm);
   document.getElementById('btn-restore-deleted').addEventListener('click', handleRestoreDeleted);
+
+  // 履歴編集モーダル
+  document.getElementById('edit-confirm').addEventListener('click', handleEditConfirm);
+  document.getElementById('edit-cancel').addEventListener('click', closeEditModal);
+  document.getElementById('edit-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeEditModal(); });
   document.getElementById('del-cancel').addEventListener('click', closeDeleteModal);
   document.getElementById('del-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteModal(); });
 
@@ -735,6 +1014,9 @@ function initEvents() {
   });
   ['hit-rot-input', 'hit-balls-input'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') handleHitConfirm(); });
+  });
+  ['start-chodama', 'start-mochidama'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateStartTotal);
   });
 }
 
