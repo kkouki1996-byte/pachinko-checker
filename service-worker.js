@@ -1,5 +1,5 @@
-// Service Worker - オフラインキャッシュ対応
-const CACHE_NAME = 'pachinko-checker-v1';
+// Service Worker - セッションデータ保持対応
+const CACHE_NAME = 'pachinko-checker-v2';
 const CACHE_FILES = [
   './',
   './index.html',
@@ -12,7 +12,10 @@ const CACHE_FILES = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(CACHE_FILES);
+      return cache.addAll(CACHE_FILES).catch(() => {
+        // ネットワーク無くても進める
+        return Promise.resolve();
+      });
     })
   );
   self.skipWaiting();
@@ -30,11 +33,24 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// フェッチ: キャッシュ優先、失敗時はネットワーク
+// フェッチ: ネットワークファースト、失敗時はキャッシュ
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request);
-    })
+    fetch(event.request)
+      .then((response) => {
+        // 成功時はキャッシュに保存
+        if (response.status === 200) {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return response;
+      })
+      .catch(() => {
+        // ネットワーク失敗時はキャッシュ利用
+        return caches.match(event.request)
+          .then((cached) => cached || caches.match('./index.html'));
+      })
   );
 });

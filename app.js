@@ -578,10 +578,22 @@ function handleHitUndo() {
 
 // ===== 出玉確定モーダル =====
 function openPayoutModal() {
+  const tab = getTab();
   document.getElementById('payout-balls-input').value = '';
   document.getElementById('payout-r-input').value = '';
   document.getElementById('payout-endrot-input').value = '';
   clearError('payout-error');
+
+  // 区間結果を表示
+  const secRot = tab.curRot - tab.hitRot;
+  const secUsedBalls = tab.hitBalls - tab.curBalls;
+  document.getElementById('payout-sec-rot').textContent = secRot > 0 ? secRot + '回' : '---';
+  const secUsedK = secUsedBalls > 0 ? (secUsedBalls / BALLS_PER_1K).toFixed(1) + 'k' : (secUsedBalls > 0 ? secUsedBalls.toLocaleString() + '玉' : '---');
+  document.getElementById('payout-sec-used').textContent = secUsedK;
+  const secRate = (secRot > 0 && secUsedBalls > 0)
+    ? Math.round(secRot / (secUsedBalls / BALLS_PER_1K) * 10) / 10 : null;
+  document.getElementById('payout-sec-rate').textContent = secRate !== null ? formatRate(secRate) : '---';
+
   document.getElementById('payout-modal').classList.add('open');
 }
 
@@ -1027,12 +1039,18 @@ function registerSW() {
   }
 }
 
-// ===== 画面復帰時に当たり中なら出玉モーダルを自動表示 =====
+// ===== 画面復帰時のセッション保持 =====
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
+    // 強制的に最新の状態を読み込む
+    loadState();
     const tab = getTab();
-    if (tab && tab.started && tab.isHit) {
-      openPayoutModal();
+    if (tab && tab.started) {
+      renderAll();
+      // 当たり中なら出玉モーダルを自動表示
+      if (tab.isHit) {
+        openPayoutModal();
+      }
     }
   }
 });
