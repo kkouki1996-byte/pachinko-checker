@@ -141,9 +141,18 @@
       <label for="hit-rot-input">現在回転数</label>
       <input type="number" id="hit-rot-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
     </div>
-    <div class="modal-input-row">
-      <label for="hit-balls-input">現在持ち玉</label>
-      <input type="number" id="hit-balls-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    <div class="input-row" style="margin-bottom:4px">
+      <div class="input-group">
+        <label for="hit-cho-input" style="font-size:15px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">貯玉</label>
+        <input type="number" id="hit-cho-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div class="input-group">
+        <label for="hit-mochi-input" style="font-size:15px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">持ち玉</label>
+        <input type="number" id="hit-mochi-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:12px">
+      合計：<span id="hit-total" style="color:var(--accent-green);font-weight:700">0</span>玉
     </div>
     <div id="hit-modal-error" class="error-msg"></div>
     <button class="btn btn-hit" id="hit-modal-confirm" style="margin-bottom:10px">記録する</button>
@@ -191,9 +200,18 @@
       <label for="kohit-rot-input">現在回転数</label>
       <input type="number" id="kohit-rot-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
     </div>
-    <div class="modal-input-row">
-      <label for="kohit-balls-input">現在持ち玉</label>
-      <input type="number" id="kohit-balls-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    <div class="input-row" style="margin-bottom:4px">
+      <div class="input-group">
+        <label for="kohit-cho-input" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">貯玉</label>
+        <input type="number" id="kohit-cho-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div class="input-group">
+        <label for="kohit-mochi-input" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">持ち玉</label>
+        <input type="number" id="kohit-mochi-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:12px">
+      合計：<span id="kohit-total" style="color:var(--accent-green);font-weight:700">0</span>玉
     </div>
     <div class="modal-input-row">
       <label for="kohit-payout-input">小当たり出玉</label>
@@ -224,9 +242,19 @@
       <div class="modal-row"><span class="label">区間回転率</span><span class="value" style="color:var(--accent)" id="payout-sec-rate">---</span></div>
     </div>
 
-    <div class="modal-input-row">
-      <label for="payout-balls-input">出玉確定時の持ち玉</label>
-      <input type="number" id="payout-balls-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    <div style="font-size:15px;font-weight:600;color:#e8e8f5;margin-bottom:8px">出玉確定時の玉数</div>
+    <div class="input-row" style="margin-bottom:4px">
+      <div class="input-group">
+        <label for="payout-cho-input" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">貯玉</label>
+        <input type="number" id="payout-cho-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div class="input-group">
+        <label for="payout-mochi-input" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">持ち玉</label>
+        <input type="number" id="payout-mochi-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:12px">
+      合計：<span id="payout-total" style="color:var(--accent-green);font-weight:700">0</span>玉
     </div>
     <div class="modal-input-row">
       <label for="payout-endrot-input">時短終了後の回転数（必須）</label>
