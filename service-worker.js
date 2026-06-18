@@ -1,5 +1,5 @@
 // Service Worker - セッションデータ保持対応
-const CACHE_NAME = 'pachinko-checker-v2';
+const CACHE_NAME = 'pachinko-checker-v3';
 const CACHE_FILES = [
   './',
   './index.html',

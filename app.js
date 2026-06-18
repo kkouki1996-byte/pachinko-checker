@@ -49,14 +49,46 @@ let pendingDeleteIndex = null;
 
 // ===== localStorage =====
 function saveState() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    // バックアップも保存（二重化）
+    localStorage.setItem(STORAGE_KEY + '_backup', JSON.stringify({ data: state, ts: Date.now() }));
+  } catch (e) {}
 }
 function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (parsed.tabs && parsed.tabs.length === NUM_TABS) state = parsed;
+    let raw = localStorage.getItem(STORAGE_KEY);
+    let parsed = raw ? JSON.parse(raw) : null;
+
+    // メインが壊れていればバックアップから復元
+    if (!parsed || !parsed.tabs) {
+      const backupRaw = localStorage.getItem(STORAGE_KEY + '_backup');
+      if (backupRaw) {
+        const backup = JSON.parse(backupRaw);
+        if (backup && backup.data && backup.data.tabs) parsed = backup.data;
+      }
+    }
+    if (!parsed || !parsed.tabs) return;
+
+    // タブ数が一致すればそのまま、足りなければ補完
+    if (parsed.tabs.length === NUM_TABS) {
+      state = parsed;
+    } else {
+      // タブ数が違っても既存データを可能な限り引き継ぐ
+      const newTabs = [];
+      for (let i = 0; i < NUM_TABS; i++) {
+        newTabs.push(parsed.tabs[i] || createTabData());
+      }
+      state = { activeTab: Math.min(parsed.activeTab || 0, NUM_TABS - 1), tabs: newTabs };
+    }
+
+    // 各タブに新しいフィールドが無い場合はデフォルトを補完
+    state.tabs.forEach(tab => {
+      const def = createTabData();
+      for (const key in def) {
+        if (tab[key] === undefined) tab[key] = def[key];
+      }
+    });
   } catch (e) {}
 }
 
@@ -596,11 +628,11 @@ function openPayoutModal() {
   document.getElementById('payout-endrot-input').value = '';
   clearError('payout-error');
 
-  // 区間結果を表示
-  const secRot = tab.curRot - tab.hitRot;
-  const secUsedBalls = tab.hitBalls - tab.curBalls;
+  // 区間結果を表示（前回〜当たりまでの通常遊技区間）
+  const secRot = tab.hitRot - tab.hitPrevRot;
+  const secUsedBalls = tab.hitPrevBalls - tab.hitBalls;
   document.getElementById('payout-sec-rot').textContent = secRot > 0 ? secRot + '回' : '---';
-  const secUsedK = secUsedBalls > 0 ? (secUsedBalls / BALLS_PER_1K).toFixed(1) + 'k' : (secUsedBalls > 0 ? secUsedBalls.toLocaleString() + '玉' : '---');
+  const secUsedK = secUsedBalls > 0 ? (secUsedBalls / BALLS_PER_1K).toFixed(1) + 'k' : '---';
   document.getElementById('payout-sec-used').textContent = secUsedK;
   const secRate = (secRot > 0 && secUsedBalls > 0)
     ? Math.round(secRot / (secUsedBalls / BALLS_PER_1K) * 10) / 10 : null;
@@ -1079,19 +1111,24 @@ function registerSW() {
 }
 
 // ===== 画面復帰時のセッション保持 =====
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    // 強制的に最新の状態を読み込む
-    loadState();
-    const tab = getTab();
-    if (tab && tab.started) {
-      renderAll();
-      // 当たり中なら出玉モーダルを自動表示
-      if (tab.isHit) {
-        openPayoutModal();
-      }
-    }
+function restoreOnResume() {
+  loadState();
+  const tab = getTab();
+  if (tab && tab.started) {
+    renderAll();
+    if (tab.isHit) openPayoutModal();
+  } else {
+    renderAll();
   }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') restoreOnResume();
+});
+
+// bfcache（戻る/ホーム画面復帰）からの復元
+window.addEventListener('pageshow', (e) => {
+  restoreOnResume();
 });
 
 // ===== スワイプでタブ切り替え =====
