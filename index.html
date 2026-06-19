@@ -284,9 +284,18 @@
       <label for="trial-rot">現在回転数</label>
       <input type="number" id="trial-rot" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
     </div>
-    <div class="modal-input-row">
-      <label for="trial-balls">現在持ち玉</label>
-      <input type="number" id="trial-balls" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    <div class="input-row" style="margin-bottom:4px">
+      <div class="input-group">
+        <label for="trial-cho" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">貯玉</label>
+        <input type="number" id="trial-cho" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div class="input-group">
+        <label for="trial-mochi" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">持ち玉</label>
+        <input type="number" id="trial-mochi" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:12px">
+      合計：<span id="trial-total" style="color:var(--accent-green);font-weight:700">0</span>玉
     </div>
     <div id="trial-error" class="error-msg"></div>
     <button class="btn btn-primary" id="trial-calc" style="margin-bottom:10px">計算する</button>
@@ -307,10 +316,23 @@
 <!-- セッション終了確認モーダル -->
 <div class="modal-overlay" id="end-confirm-modal">
   <div class="modal-sheet">
-    <div class="modal-title">セッションを終了しますか？</div>
-    <p style="font-size:14px;color:var(--text-secondary);text-align:center;margin-bottom:20px">
-      終了すると結果が表示されます。
+    <div class="modal-title">セッション終了</div>
+    <p style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:14px">
+      終了時の玉数を入力（空欄なら現在の持ち玉を使用）
     </p>
+    <div class="input-row" style="margin-bottom:4px">
+      <div class="input-group">
+        <label for="end-cho-input" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">貯玉</label>
+        <input type="number" id="end-cho-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div class="input-group">
+        <label for="end-mochi-input" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">持ち玉</label>
+        <input type="number" id="end-mochi-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:16px">
+      合計：<span id="end-total" style="color:var(--accent-green);font-weight:700">0</span>玉
+    </div>
     <button class="btn btn-end" id="end-confirm-yes" style="margin-bottom:10px">終了して結果を見る</button>
     <button class="btn btn-sm" id="end-confirm-no"
             style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">

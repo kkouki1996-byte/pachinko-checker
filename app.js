@@ -944,7 +944,9 @@ function handleEndConfirm() {
 // ===== 仮計算モーダル =====
 function openTrialModal() {
   document.getElementById('trial-rot').value = '';
-  document.getElementById('trial-balls').value = '';
+  document.getElementById('trial-cho').value = '';
+  document.getElementById('trial-mochi').value = '';
+  document.getElementById('trial-total').textContent = '0';
   document.getElementById('trial-result').style.display = 'none';
   clearError('trial-error');
   document.getElementById('trial-modal').classList.add('open');
@@ -954,12 +956,15 @@ function closeTrialModal() { document.getElementById('trial-modal').classList.re
 
 function handleTrialCalc() {
   const rotVal = document.getElementById('trial-rot').value.trim();
-  const ballsVal = document.getElementById('trial-balls').value.trim();
+  const choVal = document.getElementById('trial-cho').value.trim();
+  const mochiVal = document.getElementById('trial-mochi').value.trim();
   clearError('trial-error');
-  if (rotVal === '' || ballsVal === '') { showError('trial-error', '回転数と持ち玉を入力してください'); return; }
+  if (rotVal === '' || (choVal === '' && mochiVal === '')) { showError('trial-error', '回転数と玉数を入力してください'); return; }
   const rot = parseInt(rotVal, 10);
-  const balls = parseInt(ballsVal, 10);
-  if (isNaN(rot) || isNaN(balls)) { showError('trial-error', '正しい数値を入力してください'); return; }
+  const tCho = choVal === '' ? 0 : parseInt(choVal, 10);
+  const tMochi = mochiVal === '' ? 0 : parseInt(mochiVal, 10);
+  const balls = tCho + tMochi;
+  if (isNaN(rot) || isNaN(tCho) || isNaN(tMochi)) { showError('trial-error', '正しい数値を入力してください'); return; }
 
   const tab = getTab();
   const secRot = rot - tab.prevRot;
@@ -1006,14 +1011,37 @@ function initEvents() {
   document.getElementById('btn-hit-undo').addEventListener('click', handleHitUndo);
 
   document.getElementById('btn-end').addEventListener('click', () => {
+    document.getElementById('end-cho-input').value = '';
+    document.getElementById('end-mochi-input').value = '';
+    document.getElementById('end-total').textContent = '0';
     document.getElementById('end-confirm-modal').classList.add('open');
   });
   document.getElementById('end-confirm-yes').addEventListener('click', () => {
+    // 終了時の玉数を反映（空欄なら現在の持ち玉を使用）
+    const choVal = document.getElementById('end-cho-input').value.trim();
+    const mochiVal = document.getElementById('end-mochi-input').value.trim();
+    if (choVal !== '' || mochiVal !== '') {
+      const cho = choVal === '' ? 0 : parseInt(choVal, 10);
+      const mochi = mochiVal === '' ? 0 : parseInt(mochiVal, 10);
+      if (!isNaN(cho) && !isNaN(mochi)) {
+        const tab = getTab();
+        tab.curBalls = cho + mochi;
+        saveState();
+      }
+    }
     document.getElementById('end-confirm-modal').classList.remove('open');
     openEndModal();
   });
   document.getElementById('end-confirm-no').addEventListener('click', () => {
     document.getElementById('end-confirm-modal').classList.remove('open');
+  });
+  // 終了モーダルの合計表示
+  ['end-cho-input', 'end-mochi-input'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      const cho = parseInt(document.getElementById('end-cho-input').value, 10) || 0;
+      const mochi = parseInt(document.getElementById('end-mochi-input').value, 10) || 0;
+      document.getElementById('end-total').textContent = (cho + mochi).toLocaleString();
+    });
   });
   document.getElementById('btn-trial').addEventListener('click', openTrialModal);
   document.getElementById('btn-cash').addEventListener('click', openCashModal);
@@ -1099,6 +1127,14 @@ function initEvents() {
       const cho = parseInt(document.getElementById('payout-cho-input').value, 10) || 0;
       const mochi = parseInt(document.getElementById('payout-mochi-input').value, 10) || 0;
       document.getElementById('payout-total').textContent = (cho + mochi).toLocaleString();
+    });
+  });
+  // 仮計算モーダルの合計表示
+  ['trial-cho', 'trial-mochi'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      const cho = parseInt(document.getElementById('trial-cho').value, 10) || 0;
+      const mochi = parseInt(document.getElementById('trial-mochi').value, 10) || 0;
+      document.getElementById('trial-total').textContent = (cho + mochi).toLocaleString();
     });
   });
 }
