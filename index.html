@@ -143,7 +143,7 @@
     </div>
     <div class="input-row" style="margin-bottom:4px">
       <div class="input-group">
-        <label for="hit-cho-input" style="font-size:15px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">貯玉</label>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><label for="hit-cho-input" style="font-size:15px;font-weight:600;color:#e8e8f5">貯玉</label><button type="button" class="cho-clear-btn" data-target="hit-cho-input" style="background:none;border:none;color:var(--accent-red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button></div>
         <input type="number" id="hit-cho-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
       </div>
       <div class="input-group">
@@ -202,7 +202,7 @@
     </div>
     <div class="input-row" style="margin-bottom:4px">
       <div class="input-group">
-        <label for="kohit-cho-input" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">貯玉</label>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><label for="kohit-cho-input" style="font-size:14px;font-weight:600;color:#e8e8f5">貯玉</label><button type="button" class="cho-clear-btn" data-target="kohit-cho-input" style="background:none;border:none;color:var(--accent-red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button></div>
         <input type="number" id="kohit-cho-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
       </div>
       <div class="input-group">
@@ -220,6 +220,10 @@
     <div class="modal-input-row">
       <label for="kohit-r-input">獲得R数</label>
       <input type="number" id="kohit-r-input" inputmode="numeric" pattern="[0-9]*" value="2" min="0">
+    </div>
+    <div class="modal-input-row">
+      <label for="kohit-endrot-input">保留消化後の回転数（任意）</label>
+      <input type="number" id="kohit-endrot-input" inputmode="numeric" pattern="[0-9]*" placeholder="空欄なら現在回転数" min="0">
     </div>
     <div id="kohit-modal-error" class="error-msg"></div>
     <button class="btn" id="kohit-modal-confirm" style="background:linear-gradient(135deg,#2f7bf7,#2fc5f7);color:#fff;margin-bottom:10px">記録する</button>
@@ -245,7 +249,7 @@
     <div style="font-size:15px;font-weight:600;color:#e8e8f5;margin-bottom:8px">出玉確定時の玉数</div>
     <div class="input-row" style="margin-bottom:4px">
       <div class="input-group">
-        <label for="payout-cho-input" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">貯玉</label>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><label for="payout-cho-input" style="font-size:14px;font-weight:600;color:#e8e8f5">貯玉</label><button type="button" class="cho-clear-btn" data-target="payout-cho-input" style="background:none;border:none;color:var(--accent-red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button></div>
         <input type="number" id="payout-cho-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
       </div>
       <div class="input-group">
@@ -286,7 +290,7 @@
     </div>
     <div class="input-row" style="margin-bottom:4px">
       <div class="input-group">
-        <label for="trial-cho" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">貯玉</label>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><label for="trial-cho" style="font-size:14px;font-weight:600;color:#e8e8f5">貯玉</label><button type="button" class="cho-clear-btn" data-target="trial-cho" style="background:none;border:none;color:var(--accent-red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button></div>
         <input type="number" id="trial-cho" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
       </div>
       <div class="input-group">
@@ -391,6 +395,19 @@
     <div id="edit-error" class="error-msg"></div>
     <button class="btn btn-primary" id="edit-confirm" style="margin-bottom:10px">保存する</button>
     <button class="btn btn-sm" id="edit-cancel"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">キャンセル</button>
+  </div>
+</div>
+
+<!-- 貯玉クリア確認モーダル -->
+<div class="modal-overlay" id="cho-clear-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">貯玉を消しますか？</div>
+    <p style="font-size:14px;color:var(--text-secondary);text-align:center;margin-bottom:20px">
+      貯玉欄を0にします。
+    </p>
+    <button class="btn btn-end" id="cho-clear-yes" style="margin-bottom:10px">消す</button>
+    <button class="btn btn-sm" id="cho-clear-no"
             style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">キャンセル</button>
   </div>
 </div>
