@@ -1029,24 +1029,43 @@ function initEvents() {
   document.getElementById('btn-hit-undo').addEventListener('click', handleHitUndo);
 
   document.getElementById('btn-end').addEventListener('click', () => {
-    document.getElementById('end-cho-input').value = '';
+    const t = getTab();
+    document.getElementById('end-rot-input').value = '';
+    document.getElementById('end-cho-input').value = t.lastChodama > 0 ? t.lastChodama : '';
     document.getElementById('end-mochi-input').value = '';
-    document.getElementById('end-total').textContent = '0';
+    document.getElementById('end-total').textContent = (t.lastChodama > 0 ? t.lastChodama : 0).toLocaleString();
     document.getElementById('end-confirm-modal').classList.add('open');
   });
   document.getElementById('end-confirm-yes').addEventListener('click', () => {
-    // 終了時の玉数を反映（空欄なら現在の持ち玉を使用）
+    const tab = getTab();
     const choVal = document.getElementById('end-cho-input').value.trim();
     const mochiVal = document.getElementById('end-mochi-input').value.trim();
+    const endRotVal = document.getElementById('end-rot-input').value.trim();
+
+    // 終了時の玉数を反映（空欄なら現在の持ち玉を使用）
+    let finalBalls = tab.curBalls;
     if (choVal !== '' || mochiVal !== '') {
       const cho = choVal === '' ? 0 : parseInt(choVal, 10);
       const mochi = mochiVal === '' ? 0 : parseInt(mochiVal, 10);
-      if (!isNaN(cho) && !isNaN(mochi)) {
-        const tab = getTab();
-        tab.curBalls = cho + mochi;
-        saveState();
+      if (!isNaN(cho) && !isNaN(mochi)) finalBalls = cho + mochi;
+    }
+
+    // 最終回転数が入力されていれば最終区間を累計に加算
+    if (endRotVal !== '') {
+      const endRot = parseInt(endRotVal, 10);
+      if (!isNaN(endRot) && endRot > tab.prevRot) {
+        const secRot = endRot - tab.prevRot;
+        const secUsed = tab.prevBalls - finalBalls;
+        if (secRot > 0) tab.totalRot += secRot;
+        if (secUsed > 0) tab.totalUsed += secUsed;
+        tab.curRot = endRot;
+        tab.prevRot = endRot;
       }
     }
+    tab.curBalls = finalBalls;
+    tab.prevBalls = finalBalls;
+    saveState();
+
     document.getElementById('end-confirm-modal').classList.remove('open');
     openEndModal();
   });

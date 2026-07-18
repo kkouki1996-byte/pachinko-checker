@@ -322,11 +322,18 @@
   <div class="modal-sheet">
     <div class="modal-title">セッション終了</div>
     <p style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:14px">
-      終了時の玉数を入力（空欄なら現在の持ち玉を使用）
+      終了時の数値を入力（玉数が空欄なら現在の持ち玉を使用）
     </p>
+    <div class="modal-input-row">
+      <label for="end-rot-input" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">最終回転数（任意）</label>
+      <input type="number" id="end-rot-input" inputmode="numeric" pattern="[0-9]*" placeholder="空欄なら現在回転数" min="0">
+    </div>
     <div class="input-row" style="margin-bottom:4px">
       <div class="input-group">
-        <label for="end-cho-input" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">貯玉</label>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label for="end-cho-input" style="font-size:14px;font-weight:600;color:#e8e8f5">貯玉</label>
+          <button type="button" class="cho-clear-btn" data-target="end-cho-input" style="background:none;border:none;color:var(--accent-red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+        </div>
         <input type="number" id="end-cho-input" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
       </div>
       <div class="input-group">
