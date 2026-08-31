@@ -356,11 +356,10 @@ function updateStartTotal() {
 
 // ===== 当たり記録モーダル =====
 function openHitModal() {
-  const t = getTab();
   document.getElementById('hit-rot-input').value = '';
-  document.getElementById('hit-cho-input').value = t.lastChodama > 0 ? t.lastChodama : '';
+  document.getElementById('hit-cho-input').value = '';
   document.getElementById('hit-mochi-input').value = '';
-  document.getElementById('hit-total').textContent = (t.lastChodama > 0 ? t.lastChodama : 0).toLocaleString();
+  document.getElementById('hit-total').textContent = '0';
   clearError('hit-modal-error');
   getTab().rateWarnAcknowledged = false;
   document.getElementById('hit-modal').classList.add('open');
@@ -498,23 +497,41 @@ function handleCashMinus() {
 
 // ===== 小当たり記録モーダル =====
 function openKohitModal() {
-  const t = getTab();
   document.getElementById('kohit-rot-input').value = '';
-  document.getElementById('kohit-cho-input').value = t.lastChodama > 0 ? t.lastChodama : '';
+  document.getElementById('kohit-cho-input').value = '';
   document.getElementById('kohit-mochi-input').value = '';
-  document.getElementById('kohit-total').textContent = (t.lastChodama > 0 ? t.lastChodama : 0).toLocaleString();
+  document.getElementById('kohit-total').textContent = '0';
   document.getElementById('kohit-payout-input').value = KO_DEFAULT_BALLS;
   document.getElementById('kohit-r-input').value = KO_DEFAULT_R;
   document.getElementById('kohit-endrot-input').value = '';
+  document.getElementById('kohit-detail-fields').style.display = 'none';
+  document.getElementById('kohit-detail-toggle').textContent = '詳細設定（出玉280・R数2）▼';
+  pendingKohitConfirmed = false;
   clearError('kohit-modal-error');
   document.getElementById('kohit-modal').classList.add('open');
 }
 
 function closeKohitModal() {
   document.getElementById('kohit-modal').classList.remove('open');
+  pendingKohitConfirmed = false;
 }
 
+let pendingKohitConfirmed = false;
+
 function handleKohitConfirm() {
+  const payoutValCheck = document.getElementById('kohit-payout-input').value.trim();
+  const rValCheck = document.getElementById('kohit-r-input').value.trim();
+  const koPayoutCheck = payoutValCheck === '' ? KO_DEFAULT_BALLS : parseInt(payoutValCheck, 10);
+  const koRCheck = rValCheck === '' ? KO_DEFAULT_R : parseInt(rValCheck, 10);
+
+  if (!pendingKohitConfirmed && (koPayoutCheck !== KO_DEFAULT_BALLS || koRCheck !== KO_DEFAULT_R)) {
+    document.getElementById('kohit-value-confirm-desc').textContent =
+      `出玉${koPayoutCheck}玉・R数${koRCheck}で記録します。よろしいですか？`;
+    document.getElementById('kohit-value-confirm-modal').classList.add('open');
+    return;
+  }
+  pendingKohitConfirmed = false;
+
   const rotVal = document.getElementById('kohit-rot-input').value.trim();
   const choVal = document.getElementById('kohit-cho-input').value.trim();
   const mochiVal = document.getElementById('kohit-mochi-input').value.trim();
@@ -636,9 +653,9 @@ function handleHitUndo() {
 // ===== 出玉確定モーダル =====
 function openPayoutModal() {
   const tab = getTab();
-  document.getElementById('payout-cho-input').value = tab.lastChodama > 0 ? tab.lastChodama : '';
+  document.getElementById('payout-cho-input').value = '';
   document.getElementById('payout-mochi-input').value = '';
-  document.getElementById('payout-total').textContent = (tab.lastChodama > 0 ? tab.lastChodama : 0).toLocaleString();
+  document.getElementById('payout-total').textContent = '0';
   document.getElementById('payout-r-input').value = '';
   document.getElementById('payout-endrot-input').value = '';
   clearError('payout-error');
@@ -736,13 +753,41 @@ function handlePayoutConfirm() {
 let pendingEditIndex = null;
 let pendingChoTarget = null;
 
+// 持ち玉欄に入力があったら、貯玉欄が空なら前回貯玉を自動入力
+function autoFillChodamaOnMochi(choId, mochiId, totalId) {
+  const mochiEl = document.getElementById(mochiId);
+  const choEl = document.getElementById(choId);
+  const updateTotal = () => {
+    if (totalId) {
+      const cho = parseInt(choEl.value, 10) || 0;
+      const mochi = parseInt(mochiEl.value, 10) || 0;
+      document.getElementById(totalId).textContent = (cho + mochi).toLocaleString();
+    }
+  };
+  mochiEl.addEventListener('input', () => {
+    if (mochiEl.value.trim() !== '' && choEl.value.trim() === '') {
+      const t = getTab();
+      if (t.lastChodama > 0) {
+        choEl.value = t.lastChodama;
+      }
+    }
+    updateTotal();
+  });
+  choEl.addEventListener('input', updateTotal);
+}
+
 function openEditModal(idx) {
   const tab = getTab();
   const h = tab.history[idx];
   pendingEditIndex = idx;
   document.getElementById('edit-hit-rot').value = h.hitRot;
-  document.getElementById('edit-hit-balls').value = h.hitBalls;
-  document.getElementById('edit-payout-balls').value = h.payoutBalls;
+  // 貯玉/持ち玉の内訳は保存されていないため、合計を持ち玉欄に、貯玉は空欄で表示
+  document.getElementById('edit-hit-cho').value = '';
+  document.getElementById('edit-hit-mochi').value = h.hitBalls;
+  document.getElementById('edit-hit-total').textContent = h.hitBalls.toLocaleString();
+  document.getElementById('edit-payout-cho').value = '';
+  document.getElementById('edit-payout-mochi').value = h.payoutBalls;
+  document.getElementById('edit-payout-total').textContent = h.payoutBalls.toLocaleString();
   document.getElementById('edit-endrot').value = h.endRot !== undefined && h.endRot !== null ? h.endRot : '';
   document.getElementById('edit-r').value = h.r !== undefined && h.r !== null ? h.r : '';
   clearError('edit-error');
@@ -759,13 +804,22 @@ function handleEditConfirm() {
   clearError('edit-error');
 
   const hitRot = parseInt(document.getElementById('edit-hit-rot').value.trim(), 10);
-  const hitBalls = parseInt(document.getElementById('edit-hit-balls').value.trim(), 10);
-  const payoutBalls = parseInt(document.getElementById('edit-payout-balls').value.trim(), 10);
+  const hitChoVal = document.getElementById('edit-hit-cho').value.trim();
+  const hitMochiVal = document.getElementById('edit-hit-mochi').value.trim();
+  const payoutChoVal = document.getElementById('edit-payout-cho').value.trim();
+  const payoutMochiVal = document.getElementById('edit-payout-mochi').value.trim();
   const endRotVal = document.getElementById('edit-endrot').value.trim();
   const rVal = document.getElementById('edit-r').value.trim();
 
-  if (isNaN(hitRot) || isNaN(hitBalls) || isNaN(payoutBalls)) {
-    showError('edit-error', '回転数と持ち玉を正しく入力してください');
+  const hitCho = hitChoVal === '' ? 0 : parseInt(hitChoVal, 10);
+  const hitMochi = hitMochiVal === '' ? 0 : parseInt(hitMochiVal, 10);
+  const hitBalls = hitCho + hitMochi;
+  const payoutCho = payoutChoVal === '' ? 0 : parseInt(payoutChoVal, 10);
+  const payoutMochi = payoutMochiVal === '' ? 0 : parseInt(payoutMochiVal, 10);
+  const payoutBalls = payoutCho + payoutMochi;
+
+  if (isNaN(hitRot) || isNaN(hitCho) || isNaN(hitMochi) || isNaN(payoutCho) || isNaN(payoutMochi)) {
+    showError('edit-error', '回転数と玉数を正しく入力してください');
     return;
   }
   if (endRotVal === '') {
@@ -960,11 +1014,10 @@ function handleEndConfirm() {
 
 // ===== 仮計算モーダル =====
 function openTrialModal() {
-  const t = getTab();
   document.getElementById('trial-rot').value = '';
-  document.getElementById('trial-cho').value = t.lastChodama > 0 ? t.lastChodama : '';
+  document.getElementById('trial-cho').value = '';
   document.getElementById('trial-mochi').value = '';
-  document.getElementById('trial-total').textContent = (t.lastChodama > 0 ? t.lastChodama : 0).toLocaleString();
+  document.getElementById('trial-total').textContent = '0';
   document.getElementById('trial-result').style.display = 'none';
   clearError('trial-error');
   document.getElementById('trial-modal').classList.add('open');
@@ -1023,17 +1076,32 @@ function initEvents() {
   document.getElementById('btn-start').addEventListener('click', handleStart);
   document.getElementById('btn-hit').addEventListener('click', openHitModal);
   document.getElementById('btn-kohit').addEventListener('click', openKohitModal);
+  document.getElementById('kohit-value-confirm-yes').addEventListener('click', () => {
+    pendingKohitConfirmed = true;
+    document.getElementById('kohit-value-confirm-modal').classList.remove('open');
+    handleKohitConfirm();
+  });
+  document.getElementById('kohit-value-confirm-no').addEventListener('click', () => {
+    pendingKohitConfirmed = false;
+    document.getElementById('kohit-value-confirm-modal').classList.remove('open');
+  });
+  document.getElementById('kohit-detail-toggle').addEventListener('click', () => {
+    const fields = document.getElementById('kohit-detail-fields');
+    const toggle = document.getElementById('kohit-detail-toggle');
+    const isOpen = fields.style.display !== 'none';
+    fields.style.display = isOpen ? 'none' : 'block';
+    toggle.textContent = isOpen ? '詳細設定（出玉280・R数2）▼' : '詳細設定を閉じる ▲';
+  });
   document.getElementById('kohit-modal-confirm').addEventListener('click', handleKohitConfirm);
   document.getElementById('kohit-modal-cancel').addEventListener('click', closeKohitModal);
   document.getElementById('kohit-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeKohitModal(); });
   document.getElementById('btn-hit-undo').addEventListener('click', handleHitUndo);
 
   document.getElementById('btn-end').addEventListener('click', () => {
-    const t = getTab();
     document.getElementById('end-rot-input').value = '';
-    document.getElementById('end-cho-input').value = t.lastChodama > 0 ? t.lastChodama : '';
+    document.getElementById('end-cho-input').value = '';
     document.getElementById('end-mochi-input').value = '';
-    document.getElementById('end-total').textContent = (t.lastChodama > 0 ? t.lastChodama : 0).toLocaleString();
+    document.getElementById('end-total').textContent = '0';
     document.getElementById('end-confirm-modal').classList.add('open');
   });
   document.getElementById('end-confirm-yes').addEventListener('click', () => {
@@ -1073,13 +1141,6 @@ function initEvents() {
     document.getElementById('end-confirm-modal').classList.remove('open');
   });
   // 終了モーダルの合計表示
-  ['end-cho-input', 'end-mochi-input'].forEach(id => {
-    document.getElementById(id).addEventListener('input', () => {
-      const cho = parseInt(document.getElementById('end-cho-input').value, 10) || 0;
-      const mochi = parseInt(document.getElementById('end-mochi-input').value, 10) || 0;
-      document.getElementById('end-total').textContent = (cho + mochi).toLocaleString();
-    });
-  });
   document.getElementById('btn-trial').addEventListener('click', openTrialModal);
   document.getElementById('btn-cash').addEventListener('click', openCashModal);
   document.getElementById('cash-plus').addEventListener('click', handleCashPlus);
@@ -1130,6 +1191,15 @@ function initEvents() {
   document.getElementById('edit-cancel').addEventListener('click', closeEditModal);
   document.getElementById('edit-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeEditModal(); });
 
+  // 持ち玉入力時に前回貯玉を自動入力
+  autoFillChodamaOnMochi('hit-cho-input', 'hit-mochi-input', 'hit-total');
+  autoFillChodamaOnMochi('kohit-cho-input', 'kohit-mochi-input', 'kohit-total');
+  autoFillChodamaOnMochi('payout-cho-input', 'payout-mochi-input', 'payout-total');
+  autoFillChodamaOnMochi('trial-cho', 'trial-mochi', 'trial-total');
+  autoFillChodamaOnMochi('end-cho-input', 'end-mochi-input', 'end-total');
+  autoFillChodamaOnMochi('edit-hit-cho', 'edit-hit-mochi', 'edit-hit-total');
+  autoFillChodamaOnMochi('edit-payout-cho', 'edit-payout-mochi', 'edit-payout-total');
+
   // 貯玉クリアボタン
   document.querySelectorAll('.cho-clear-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1159,7 +1229,7 @@ function initEvents() {
   document.getElementById('del-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteModal(); });
 
   // Enterキー
-  ['start-rot', 'start-balls'].forEach(id => {
+  ['start-rot', 'start-chodama', 'start-mochidama'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') handleStart(); });
   });
   ['hit-rot-input', 'hit-cho-input', 'hit-mochi-input'].forEach(id => {
@@ -1167,38 +1237,6 @@ function initEvents() {
   });
   ['start-chodama', 'start-mochidama'].forEach(id => {
     document.getElementById(id).addEventListener('input', updateStartTotal);
-  });
-  // 当たり記録モーダルの合計表示
-  ['hit-cho-input', 'hit-mochi-input'].forEach(id => {
-    document.getElementById(id).addEventListener('input', () => {
-      const cho = parseInt(document.getElementById('hit-cho-input').value, 10) || 0;
-      const mochi = parseInt(document.getElementById('hit-mochi-input').value, 10) || 0;
-      document.getElementById('hit-total').textContent = (cho + mochi).toLocaleString();
-    });
-  });
-  // 小当たりモーダルの合計表示
-  ['kohit-cho-input', 'kohit-mochi-input'].forEach(id => {
-    document.getElementById(id).addEventListener('input', () => {
-      const cho = parseInt(document.getElementById('kohit-cho-input').value, 10) || 0;
-      const mochi = parseInt(document.getElementById('kohit-mochi-input').value, 10) || 0;
-      document.getElementById('kohit-total').textContent = (cho + mochi).toLocaleString();
-    });
-  });
-  // 出玉確定モーダルの合計表示
-  ['payout-cho-input', 'payout-mochi-input'].forEach(id => {
-    document.getElementById(id).addEventListener('input', () => {
-      const cho = parseInt(document.getElementById('payout-cho-input').value, 10) || 0;
-      const mochi = parseInt(document.getElementById('payout-mochi-input').value, 10) || 0;
-      document.getElementById('payout-total').textContent = (cho + mochi).toLocaleString();
-    });
-  });
-  // 仮計算モーダルの合計表示
-  ['trial-cho', 'trial-mochi'].forEach(id => {
-    document.getElementById(id).addEventListener('input', () => {
-      const cho = parseInt(document.getElementById('trial-cho').value, 10) || 0;
-      const mochi = parseInt(document.getElementById('trial-mochi').value, 10) || 0;
-      document.getElementById('trial-total').textContent = (cho + mochi).toLocaleString();
-    });
   });
 }
 
