@@ -129,6 +129,19 @@ function clearError(id) {
 }
 
 // ===== タブ描画 =====
+// ===== 差玉計算 =====
+// 差玉 = 現在の玉数 − 開始時の玉数 − 現金投資分の玉数
+function calcDiff(tab, balls) {
+  const cur = balls !== undefined ? balls : tab.curBalls;
+  const cashBalls = Math.floor((tab.cashInvested || 0) / CASH_PER_UNIT) * BALLS_PER_CASH;
+  return cur - tab.startBalls - cashBalls;
+}
+function setDiffText(el, diff) {
+  if (!el) return;
+  el.textContent = (diff >= 0 ? '+' : '') + diff.toLocaleString() + '玉';
+  el.style.color = diff >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+}
+
 function renderTabs() {
   const bar = document.getElementById('tab-bar');
   bar.innerHTML = '';
@@ -136,14 +149,19 @@ function renderTabs() {
     const btn = document.createElement('button');
     btn.className = 'tab-btn' + (i === state.activeTab ? ' active' : '');
     btn.textContent = tab.name;
-    btn.addEventListener('click', () => {
-      state.activeTab = i;
-      saveState();
-      renderAll();
-    });
+    btn.addEventListener('click', () => switchTab(i));
     bar.appendChild(btn);
   });
+  updateTabbarHeight();
 }
+
+// モーダルをタブバーの下に配置するため高さをCSS変数に渡す
+function updateTabbarHeight() {
+  const bar = document.getElementById('tab-bar');
+  if (bar) document.documentElement.style.setProperty('--tabbar-h', bar.offsetHeight + 'px');
+}
+window.addEventListener('resize', updateTabbarHeight);
+window.addEventListener('orientationchange', updateTabbarHeight);
 
 // ===== メイン描画 =====
 function renderAll() {
@@ -187,6 +205,7 @@ function renderSessionView(tab) {
 
   const speed = calcSpeed(tab);
   document.getElementById('stat-speed').textContent = speed !== null ? speed.toLocaleString() : '---';
+  setDiffText(document.getElementById('stat-diff'), calcDiff(tab));
 
   const banner = document.getElementById('hit-banner');
   if (tab.isHit) {
@@ -203,6 +222,7 @@ function renderSessionView(tab) {
   renderHistory(tab);
   renderHitSummary(tab);
   renderCashAmount(tab);
+  renderSavedMachines();
 }
 
 // ===== 当たりサマリー描画 =====
@@ -343,6 +363,7 @@ function handleStart() {
   tab.lastChodama = cho;
   tab.sessionStart = Date.now();
   tab.historyOpen = false;
+  clearDraft();
   saveState();
   renderAll();
 }
@@ -367,6 +388,7 @@ function openHitModal() {
 
 function closeHitModal() {
   document.getElementById('hit-modal').classList.remove('open');
+  clearDraft();
   document.getElementById('hit-modal-confirm').textContent = '記録する';
   clearError('hit-modal-error');
 }
@@ -513,6 +535,7 @@ function openKohitModal() {
 
 function closeKohitModal() {
   document.getElementById('kohit-modal').classList.remove('open');
+  clearDraft();
   pendingKohitConfirmed = false;
 }
 
@@ -564,8 +587,8 @@ function handleKohitConfirm() {
     showError('kohit-modal-error', `回転数は前回(${tab.prevRot})より大きい値を入力してください`);
     return;
   }
-  if (endRotVal !== '' && (isNaN(koEndRot) || koEndRot < rot)) {
-    showError('kohit-modal-error', `保留消化後の回転数は当選時(${rot})以上で入力してください`);
+  if (endRotVal !== '' && (isNaN(koEndRot) || koEndRot < 0)) {
+    showError('kohit-modal-error', '保留消化後の回転数を正しく入力してください');
     return;
   }
 
@@ -660,7 +683,12 @@ function openPayoutModal() {
   document.getElementById('payout-endrot-input').value = '';
   clearError('payout-error');
 
-  // 区間結果を表示（前回〜当たりまでの通常遊技区間）
+  renderPayoutSection(tab);
+  document.getElementById('payout-modal').classList.add('open');
+}
+
+// 出玉確定画面の「この区間の結果」を描画
+function renderPayoutSection(tab) {
   const secRot = tab.hitRot - tab.hitPrevRot;
   const secUsedBalls = tab.hitPrevBalls - tab.hitBalls;
   document.getElementById('payout-sec-rot').textContent = secRot > 0 ? secRot + '回' : '---';
@@ -669,12 +697,27 @@ function openPayoutModal() {
   const secRate = (secRot > 0 && secUsedBalls > 0)
     ? Math.round(secRot / (secUsedBalls / BALLS_PER_1K) * 10) / 10 : null;
   document.getElementById('payout-sec-rate').textContent = secRate !== null ? formatRate(secRate) : '---';
+  updatePayoutDiff();
+}
 
-  document.getElementById('payout-modal').classList.add('open');
+// 入力中の玉数から「確定後の差玉」をリアルタイム表示
+function updatePayoutDiff() {
+  const tab = getTab();
+  const choVal = document.getElementById('payout-cho-input').value.trim();
+  const mochiVal = document.getElementById('payout-mochi-input').value.trim();
+  const el = document.getElementById('payout-diff');
+  if (choVal === '' && mochiVal === '') {
+    el.textContent = '---';
+    el.style.color = '';
+    return;
+  }
+  const balls = (parseInt(choVal, 10) || 0) + (parseInt(mochiVal, 10) || 0);
+  setDiffText(el, calcDiff(tab, balls));
 }
 
 function closePayoutModal() {
   document.getElementById('payout-modal').classList.remove('open');
+  clearDraft();
 }
 
 function handlePayoutConfirm() {
@@ -749,6 +792,232 @@ function handlePayoutConfirm() {
   renderSessionView(tab);
 }
 
+// ===== 台の記録 =====
+const SAVED_KEY = STORAGE_KEY + '_saved';
+let savedDeleted = null;
+let savedOpen = false;
+let svMsgTimer = null;
+
+function loadSavedMachines() {
+  try {
+    const raw = localStorage.getItem(SAVED_KEY);
+    if (!raw) return [];
+    const a = JSON.parse(raw);
+    return Array.isArray(a) ? a : [];
+  } catch (e) { return []; }
+}
+function storeSavedMachines(list) {
+  try { localStorage.setItem(SAVED_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+function showSvMsg(text, isErr) {
+  const el = document.getElementById('sv-msg');
+  el.textContent = text;
+  el.style.color = isErr ? 'var(--accent-red)' : 'var(--accent-green)';
+  el.style.display = 'block';
+  if (svMsgTimer) clearTimeout(svMsgTimer);
+  svMsgTimer = setTimeout(() => { el.style.display = 'none'; }, 2500);
+}
+
+function saveCurrentMachine() {
+  const tab = getTab();
+  if (!tab.started) { showSvMsg('セッション開始後に保存できます', true); return; }
+  const no = document.getElementById('sv-no').value.trim();
+  const memo = document.getElementById('sv-memo').value.trim();
+  const rate = calcRate(tab.totalRot, tab.totalUsed);
+  const d = new Date();
+  const rec = {
+    tabIndex: state.activeTab,
+    no, memo,
+    rot: tab.totalRot,
+    used: tab.totalUsed,
+    rate: rate,
+    hits: tab.history.length,
+    diff: calcDiff(tab),
+    cash: tab.cashInvested || 0,
+    date: (d.getMonth() + 1) + '/' + d.getDate(),
+  };
+  const list = loadSavedMachines();
+  list.unshift(rec);
+  storeSavedMachines(list);
+  document.getElementById('sv-no').value = '';
+  document.getElementById('sv-memo').value = '';
+  savedOpen = true;
+  renderSavedMachines();
+  showSvMsg('保存しました', false);
+}
+
+function renderSavedMachines() {
+  const list = loadSavedMachines();
+  const box = document.getElementById('saved-list');
+  const toggle = document.getElementById('saved-toggle');
+  box.style.display = savedOpen ? 'block' : 'none';
+  toggle.textContent = (savedOpen ? '保存した台 ▲（' : '保存した台 ▼（') + list.length + '件）';
+  box.innerHTML = '';
+  if (list.length === 0) {
+    box.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:13px;text-align:center">保存した台はありません</div>';
+    appendSavedUndo(box);
+    return;
+  }
+  list.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:10px;align-items:flex-start;padding:12px 2px;border-bottom:1px solid var(--border);';
+
+    const main = document.createElement('div');
+    main.style.cssText = 'flex:1;min-width:0;';
+
+    let head = '<span style="font-family:var(--font-mono);font-size:16px;font-weight:700;color:var(--accent)">'
+      + (s.no ? s.no + '番' : '台番号なし') + '</span>';
+    head += ' <span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--accent-green)">'
+      + (s.rate !== null && s.rate !== undefined ? formatRate(s.rate) : '---') + '</span>';
+    head += ' <span style="font-size:11px;color:var(--text-muted)">回転/k　' + (s.date || '') + '</span>';
+
+    const diff = s.diff || 0;
+    let sub = '<div style="font-size:12px;color:var(--text-secondary);font-family:var(--font-mono);margin-top:2px">'
+      + s.rot.toLocaleString() + '回転 / ' + (s.used / BALLS_PER_1K).toFixed(1) + 'k / '
+      + s.hits + '当たり / 差玉<span style="color:' + (diff >= 0 ? 'var(--accent-green)' : 'var(--accent-red)') + '">'
+      + (diff >= 0 ? '+' : '') + diff.toLocaleString() + '</span>'
+      + (s.cash ? ' / 投資' + s.cash.toLocaleString() + '円' : '')
+      + '</div>';
+
+    main.innerHTML = head + sub;
+    if (s.memo) {
+      const memo = document.createElement('div');
+      memo.style.cssText = 'font-size:12px;color:var(--text-muted);margin-top:2px;word-break:break-all;';
+      memo.textContent = s.memo;
+      main.appendChild(memo);
+    }
+
+    const del = document.createElement('button');
+    del.textContent = '🗑';
+    del.style.cssText = 'background:none;border:none;color:var(--accent-red);font-size:16px;padding:4px 8px;cursor:pointer;flex-shrink:0;';
+    del.addEventListener('click', () => {
+      const cur = loadSavedMachines();
+      savedDeleted = { item: cur[i], index: i };
+      cur.splice(i, 1);
+      storeSavedMachines(cur);
+      renderSavedMachines();
+    });
+
+    row.appendChild(main);
+    row.appendChild(del);
+    box.appendChild(row);
+  });
+
+  appendSavedUndo(box);
+}
+
+// 直前に削除した台を戻すボタン
+function appendSavedUndo(box) {
+  if (savedDeleted) {
+    const undo = document.createElement('button');
+    undo.className = 'btn btn-sm';
+    undo.style.cssText = 'background:transparent;border:1px solid var(--accent-green);color:var(--accent-green);margin-top:10px;';
+    undo.textContent = '↩ 削除した台を元に戻す';
+    undo.addEventListener('click', () => {
+      const cur = loadSavedMachines();
+      cur.splice(Math.min(savedDeleted.index, cur.length), 0, savedDeleted.item);
+      savedDeleted = null;
+      storeSavedMachines(cur);
+      renderSavedMachines();
+    });
+    box.appendChild(undo);
+  }
+}
+
+// ===== 開始値の修正 =====
+function openStartEditModal() {
+  const tab = getTab();
+  if (!tab.started) return;
+  document.getElementById('se-rot').value = tab.startRot;
+  // 内訳は保存していないので、貯玉は前回値・残りを持ち玉として表示
+  const cho = Math.min(tab.lastChodama || 0, tab.startBalls);
+  document.getElementById('se-cho').value = cho > 0 ? cho : '';
+  document.getElementById('se-mochi').value = tab.startBalls - cho;
+  document.getElementById('se-total').textContent = tab.startBalls.toLocaleString();
+  clearError('se-error');
+  document.getElementById('startedit-modal').classList.add('open');
+}
+
+function closeStartEditModal() {
+  document.getElementById('startedit-modal').classList.remove('open');
+}
+
+// 開始値を変えて、履歴を先頭から積み直す
+function handleStartEditConfirm() {
+  clearError('se-error');
+  const rotVal = document.getElementById('se-rot').value.trim();
+  const choVal = document.getElementById('se-cho').value.trim();
+  const mochiVal = document.getElementById('se-mochi').value.trim();
+
+  const rot = parseInt(rotVal, 10);
+  const cho = choVal === '' ? 0 : parseInt(choVal, 10);
+  const mochi = mochiVal === '' ? 0 : parseInt(mochiVal, 10);
+  if (isNaN(rot) || isNaN(cho) || isNaN(mochi) || rot < 0 || cho < 0 || mochi < 0) {
+    showError('se-error', '正しい数値を入力してください');
+    return;
+  }
+  const balls = cho + mochi;
+
+  const tab = getTab();
+  tab.startRot = rot;
+  tab.startBalls = balls;
+  tab.lastChodama = cho;
+  recalcFromStart(tab);
+
+  closeStartEditModal();
+  saveState();
+  renderSessionView(tab);
+}
+
+// 開始値から履歴を順に適用して累計を作り直す
+function recalcFromStart(tab) {
+  let prevRot = tab.startRot;
+  let prevBalls = tab.startBalls;
+  let totalRot = 0;
+  let totalUsed = 0;
+
+  tab.history.forEach(h => {
+    // この当たりの区間を開始値基準で計算し直す
+    h.snapPrevRot = prevRot;
+    h.snapPrevBalls = prevBalls;
+    h.snapTotalRot = totalRot;
+    h.snapTotalUsed = totalUsed;
+
+    const secRot = h.hitRot - prevRot;
+    const secUsedBalls = prevBalls - h.hitBalls;
+    h.secRot = secRot;
+    h.secUsedBalls = secUsedBalls;
+    h.usedK = secUsedBalls > 0 ? (secUsedBalls / BALLS_PER_1K).toFixed(1) : null;
+    h.secRate = (secRot > 0 && secUsedBalls > 0)
+      ? Math.round(secRot / (secUsedBalls / BALLS_PER_1K) * 10) / 10 : null;
+    h.gained = h.payoutBalls - h.hitBalls;
+    h.per1r = (h.r && h.r > 0) ? h.gained / h.r : null;
+
+    if (secRot > 0) totalRot += secRot;
+    if (secUsedBalls > 0) totalUsed += secUsedBalls;
+
+    prevRot = (h.endRot !== undefined && h.endRot !== null) ? h.endRot : h.hitRot;
+    prevBalls = h.payoutBalls;
+  });
+
+  tab.totalRot = totalRot;
+  tab.totalUsed = totalUsed;
+
+  if (tab.isHit) {
+    // 当たり入力中は直前の区間だけ基準を更新
+    tab.hitPrevRot = prevRot;
+    tab.hitPrevBalls = prevBalls;
+  } else {
+    tab.prevRot = prevRot;
+    tab.prevBalls = prevBalls;
+    tab.curRot = prevRot;
+    tab.curBalls = prevBalls;
+  }
+  const last = tab.history[tab.history.length - 1];
+  tab.lastSecRate = last && last.secRate !== null ? last.secRate : null;
+}
+
 // ===== 履歴編集モーダル =====
 let pendingEditIndex = null;
 let pendingChoTarget = null;
@@ -796,6 +1065,7 @@ function openEditModal(idx) {
 
 function closeEditModal() {
   document.getElementById('edit-modal').classList.remove('open');
+  clearDraft();
   pendingEditIndex = null;
 }
 
@@ -958,7 +1228,7 @@ function handleRestoreDeleted() {
 // ===== セッション終了モーダル =====
 function openEndModal() {
   const tab = getTab();
-  const diffBalls = tab.curBalls - tab.startBalls;
+  const diffBalls = calcDiff(tab);
   const rate = calcRate(tab.totalRot, tab.totalUsed);
   const speed = calcSpeed(tab);
 
@@ -1023,7 +1293,7 @@ function openTrialModal() {
   document.getElementById('trial-modal').classList.add('open');
 }
 
-function closeTrialModal() { document.getElementById('trial-modal').classList.remove('open'); }
+function closeTrialModal() { document.getElementById('trial-modal').classList.remove('open'); clearDraft(); }
 
 function handleTrialCalc() {
   const rotVal = document.getElementById('trial-rot').value.trim();
@@ -1057,6 +1327,7 @@ function handleTrialCalc() {
   const tmpRot = tab.totalRot + (secRot > 0 && secUsed > 0 ? secRot : secRot > 0 ? secRot : 0);
   const tmpUsed = tab.totalUsed + (secUsed > 0 ? secUsed : 0);
   const totalRate = calcRate(tmpRot, tmpUsed);
+  setDiffText(document.getElementById('trial-diff'), calcDiff(tab, balls));
   document.getElementById('trial-total-rate').textContent =
     totalRate !== null ? formatRate(totalRate) + '回転/k' : '---';
 
@@ -1135,10 +1406,12 @@ function initEvents() {
     saveState();
 
     document.getElementById('end-confirm-modal').classList.remove('open');
+    clearDraft();
     openEndModal();
   });
   document.getElementById('end-confirm-no').addEventListener('click', () => {
     document.getElementById('end-confirm-modal').classList.remove('open');
+    clearDraft();
   });
   // 終了モーダルの合計表示
   document.getElementById('btn-trial').addEventListener('click', openTrialModal);
@@ -1186,6 +1459,20 @@ function initEvents() {
   document.getElementById('del-confirm').addEventListener('click', handleDeleteConfirm);
   document.getElementById('btn-restore-deleted').addEventListener('click', handleRestoreDeleted);
 
+  // 台の記録
+  document.getElementById('btn-save-machine').addEventListener('click', saveCurrentMachine);
+  document.getElementById('saved-toggle').addEventListener('click', () => {
+    savedOpen = !savedOpen;
+    renderSavedMachines();
+  });
+
+  // 開始値の修正
+  document.getElementById('start-edit-tap').addEventListener('click', openStartEditModal);
+  document.getElementById('se-confirm').addEventListener('click', handleStartEditConfirm);
+  document.getElementById('se-cancel').addEventListener('click', closeStartEditModal);
+  document.getElementById('startedit-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeStartEditModal(); });
+  autoFillChodamaOnMochi('se-cho', 'se-mochi', 'se-total');
+
   // 履歴編集モーダル
   document.getElementById('edit-confirm').addEventListener('click', handleEditConfirm);
   document.getElementById('edit-cancel').addEventListener('click', closeEditModal);
@@ -1195,6 +1482,9 @@ function initEvents() {
   autoFillChodamaOnMochi('hit-cho-input', 'hit-mochi-input', 'hit-total');
   autoFillChodamaOnMochi('kohit-cho-input', 'kohit-mochi-input', 'kohit-total');
   autoFillChodamaOnMochi('payout-cho-input', 'payout-mochi-input', 'payout-total');
+  ['payout-cho-input', 'payout-mochi-input'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updatePayoutDiff);
+  });
   autoFillChodamaOnMochi('trial-cho', 'trial-mochi', 'trial-total');
   autoFillChodamaOnMochi('end-cho-input', 'end-mochi-input', 'end-total');
   autoFillChodamaOnMochi('edit-hit-cho', 'edit-hit-mochi', 'edit-hit-total');
@@ -1248,18 +1538,154 @@ function registerSW() {
 }
 
 // ===== 画面復帰時のセッション保持 =====
+// ===== 入力途中の値を一時保存／復元 =====
+const DRAFT_KEY = STORAGE_KEY + '_draft';
+// 監視対象の入力欄
+const DRAFT_INPUT_IDS = [
+  'start-rot', 'start-chodama', 'start-mochidama',
+  'hit-rot-input', 'hit-cho-input', 'hit-mochi-input',
+  'kohit-rot-input', 'kohit-cho-input', 'kohit-mochi-input',
+  'kohit-payout-input', 'kohit-r-input', 'kohit-endrot-input',
+  'payout-cho-input', 'payout-mochi-input', 'payout-endrot-input', 'payout-r-input',
+  'trial-rot', 'trial-cho', 'trial-mochi',
+  'end-rot-input', 'end-cho-input', 'end-mochi-input',
+  'edit-hit-rot', 'edit-hit-cho', 'edit-hit-mochi',
+  'edit-payout-cho', 'edit-payout-mochi', 'edit-endrot', 'edit-r',
+];
+// どのモーダルが開いているか
+const DRAFT_MODAL_IDS = ['hit-modal', 'kohit-modal', 'payout-modal', 'trial-modal', 'end-confirm-modal', 'edit-modal'];
+
+// 台ごとに別々の下書きキー
+function draftKey(i) {
+  return DRAFT_KEY + '_' + (i === undefined ? state.activeTab : i);
+}
+
+function saveDraft() {
+  try {
+    const values = {};
+    DRAFT_INPUT_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.value !== '') values[id] = el.value;
+    });
+    const openModals = DRAFT_MODAL_IDS.filter(id => {
+      const el = document.getElementById(id);
+      return el && el.classList.contains('open');
+    });
+    localStorage.setItem(draftKey(), JSON.stringify({
+      values, openModals, editIndex: pendingEditIndex, ts: Date.now()
+    }));
+  } catch (e) {}
+}
+
+// 画面上の入力欄を初期値に戻す（台切り替え時に前の台の値が残らないように）
+function resetDraftInputs() {
+  DRAFT_INPUT_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = el.defaultValue || '';
+  });
+  ['hit-modal-error', 'kohit-modal-error', 'payout-error', 'trial-error', 'edit-error'].forEach(clearError);
+  const trialResult = document.getElementById('trial-result');
+  if (trialResult) trialResult.style.display = 'none';
+  const hitBtn = document.getElementById('hit-modal-confirm');
+  if (hitBtn) hitBtn.textContent = '記録する';
+}
+
+function closeAllModalsSilently() {
+  document.querySelectorAll('.modal-overlay.open').forEach(el => el.classList.remove('open'));
+}
+
+function updateAllTotals() {
+  [['hit-cho-input','hit-mochi-input','hit-total'],
+   ['kohit-cho-input','kohit-mochi-input','kohit-total'],
+   ['payout-cho-input','payout-mochi-input','payout-total'],
+   ['trial-cho','trial-mochi','trial-total'],
+   ['end-cho-input','end-mochi-input','end-total'],
+   ['edit-hit-cho','edit-hit-mochi','edit-hit-total'],
+   ['edit-payout-cho','edit-payout-mochi','edit-payout-total'],
+   ['start-chodama','start-mochidama','start-total']].forEach(([c, m, t]) => {
+    const cEl = document.getElementById(c), mEl = document.getElementById(m), tEl = document.getElementById(t);
+    if (cEl && mEl && tEl) {
+      const cv = parseInt(cEl.value, 10) || 0;
+      const mv = parseInt(mEl.value, 10) || 0;
+      tEl.textContent = (cv + mv).toLocaleString();
+    }
+  });
+}
+
+function restoreDraft() {
+  try {
+    const raw = localStorage.getItem(draftKey());
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+    if (!draft || !draft.values) return;
+    Object.keys(draft.values).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = draft.values[id];
+    });
+    if (draft.editIndex !== undefined && draft.editIndex !== null) {
+      pendingEditIndex = draft.editIndex;
+    }
+    const tab = getTab();
+    (draft.openModals || []).forEach(id => {
+      // 編集対象が無くなっていたら開かない
+      if (id === 'edit-modal' && (pendingEditIndex === null || !tab.history[pendingEditIndex])) return;
+      // 当たり中でないのに出玉確定を開かない
+      if (id === 'payout-modal' && !tab.isHit) return;
+      const el = document.getElementById(id);
+      if (el) el.classList.add('open');
+      if (id === 'payout-modal') renderPayoutSection(tab);
+    });
+    updateAllTotals();
+  } catch (e) {}
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(draftKey()); } catch (e) {}
+}
+
+function anyDraftModalOpen() {
+  return DRAFT_MODAL_IDS.some(id => {
+    const el = document.getElementById(id);
+    return el && el.classList.contains('open');
+  });
+}
+
+// ===== 台の切り替え（入力途中でも可） =====
+function switchTab(i) {
+  if (i === state.activeTab || i < 0 || i >= NUM_TABS) return;
+  saveDraft();               // 今の台の入力途中を保存
+  closeAllModalsSilently();  // 下書きは消さずに閉じる
+  resetDraftInputs();
+  pendingEditIndex = null;
+  state.activeTab = i;
+  saveState();
+  renderAll();
+  restoreDraft();            // 切り替え先の台の入力途中を復元
+  const tab = getTab();
+  if (tab.started && tab.isHit && !anyDraftModalOpen()) openPayoutModal();
+}
+
 function restoreOnResume() {
   loadState();
   const tab = getTab();
-  if (tab && tab.started) {
-    renderAll();
-    if (tab.isHit) openPayoutModal();
-  } else {
-    renderAll();
-  }
+  renderAll();
+  // 入力途中の値とモーダル状態を復元
+  restoreDraft();
+  // 当たり中でモーダルが復元されていなければ出玉モーダルを開く
+  if (tab && tab.started && tab.isHit && !anyDraftModalOpen()) openPayoutModal();
+}
+
+// 全入力欄の変更を随時保存
+function initDraftWatchers() {
+  DRAFT_INPUT_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', saveDraft);
+  });
 }
 
 document.addEventListener('visibilitychange', () => {
+  // バックグラウンドへ行く直前に保存
+  if (document.visibilityState === 'hidden') saveDraft();
   if (document.visibilityState === 'visible') restoreOnResume();
 });
 
@@ -1267,6 +1693,9 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pageshow', (e) => {
   restoreOnResume();
 });
+
+window.addEventListener('pagehide', saveDraft);
+window.addEventListener('blur', saveDraft);
 
 // ===== スワイプでタブ切り替え =====
 function initSwipe() {
@@ -1284,17 +1713,8 @@ function initSwipe() {
     const dy = e.changedTouches[0].clientY - startY;
     // 横方向のスワイプのみ（縦スクロールと区別）
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) {
-      if (dx < 0 && state.activeTab < NUM_TABS - 1) {
-        // 左スワイプ → 次のタブ
-        state.activeTab++;
-      } else if (dx > 0 && state.activeTab > 0) {
-        // 右スワイプ → 前のタブ
-        state.activeTab--;
-      } else {
-        return;
-      }
-      saveState();
-      renderAll();
+      if (dx < 0) switchTab(state.activeTab + 1);      // 左スワイプ → 次の台
+      else if (dx > 0) switchTab(state.activeTab - 1); // 右スワイプ → 前の台
     }
   }, { passive: true });
 }
@@ -1304,6 +1724,10 @@ document.addEventListener('DOMContentLoaded', () => {
   loadState();
   initEvents();
   initSwipe();
+  initDraftWatchers();
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
   renderAll();
+  renderSavedMachines();
+  restoreDraft();
   registerSW();
 });
