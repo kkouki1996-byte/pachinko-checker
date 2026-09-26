@@ -49,7 +49,7 @@ body {
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 300; /* モーダルより手前：入力中でも台を切り替えられる */
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -322,11 +322,13 @@ body {
 .modal-overlay {
   position: fixed;
   inset: 0;
+  top: var(--tabbar-h, 0px); /* タブバーの下から表示 */
   background: rgba(0,0,0,0.8);
   z-index: 200;
   display: none;
   align-items: flex-end;
   justify-content: center;
+  padding-bottom: var(--kb, 0px);
 }
 .modal-overlay.open {
   display: flex;
@@ -337,8 +339,9 @@ body {
   padding: 24px 20px calc(env(safe-area-inset-bottom) + 24px);
   width: 100%;
   max-width: 430px;
-  max-height: 90vh;
+  max-height: calc(100% - var(--kb, 0px));
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .modal-title {
   font-size: 18px;

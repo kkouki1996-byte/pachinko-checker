@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="回転率">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="manifest" href="./manifest.json">
+  <title>パチンコ回転率チェッカー</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<div id="tab-bar"></div>
+
+<div id="app">
+
+  <!-- セッション開始前 -->
+  <div id="start-form">
+    <div class="card">
+      <div class="section-title">セッション開始</div>
+      <div class="input-group" style="margin-bottom:12px">
+        <label for="start-rot">開始回転数</label>
+        <input type="number" id="start-rot" data-kb-follow="btn-start" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div class="input-row">
+        <div class="input-group">
+          <label for="start-chodama">貯玉</label>
+          <input type="number" id="start-chodama" data-kb-follow="btn-start" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+        </div>
+        <div class="input-group">
+          <label for="start-mochidama">持ち玉</label>
+          <input type="number" id="start-mochidama" data-kb-follow="btn-start" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:12px">
+        合計：<span id="start-total" style="color:var(--accent-green);font-weight:700">0</span>玉
+      </div>
+      <div id="start-error" class="error-msg"></div>
+      <button class="btn btn-start" id="btn-start" data-blur="1">▶ セッション開始</button>
+    </div>
+  </div>
+
+  <!-- セッション中 -->
+  <div id="session-view">
+
+    <div class="card" id="rate-display">
+      <div class="rate-label">累計回転率</div>
+      <div>
+        <span class="rate-value no-data" id="rate-value">データなし</span>
+        <span class="rate-unit" id="rate-unit"></span>
+      </div>
+    </div>
+
+    <div id="hit-banner"></div>
+
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-label">自分の累計回転数</div>
+        <div class="stat-value" id="stat-rot">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">現在持ち玉</div>
+        <div class="stat-value" id="stat-balls">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">現在回転数</div>
+        <div class="stat-value" id="stat-cur-rot">0</div>
+      </div>
+      <div class="stat-item" id="start-edit-tap" style="cursor:pointer">
+        <div class="stat-label">開始回転数 ✎</div>
+        <div class="stat-value" id="stat-start-rot">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">現在差玉</div>
+        <div class="stat-value" id="stat-diff">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">回転時速（回転/h）</div>
+        <div class="stat-value" id="stat-speed">---</div>
+      </div>
+    </div>
+
+    <!-- 当たり情報サマリー -->
+    <div id="hit-summary" style="display:none" class="card">
+      <div style="text-align:center;margin-bottom:8px">
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">平均1R出玉</div>
+        <div style="font-size:48px;font-weight:700;font-family:var(--font-mono);color:var(--accent-yellow)" id="summary-1r">---</div>
+        <div style="font-size:13px;color:var(--text-secondary)">玉/R</div>
+      </div>
+      <button id="hit-detail-toggle" style="background:none;border:none;color:var(--text-secondary);font-size:13px;width:100%;cursor:pointer;padding:4px 0">
+        詳細 ▼
+      </button>
+      <div id="hit-detail" style="display:none;margin-top:8px">
+        <div class="modal-row"><span class="label">合計獲得出玉</span><span class="value" id="summary-gained">---</span></div>
+        <div class="modal-row"><span class="label">合計獲得R数</span><span class="value" id="summary-r">---</span></div>
+        <div class="modal-row"><span class="label">当たり回数</span><span class="value" id="summary-count">---</span></div>
+      </div>
+    </div>
+
+    <button class="btn" id="btn-cash" data-blur="1"
+            style="background:#1e3a2a;border:1px solid var(--accent-green);color:var(--accent-green);margin-bottom:10px">
+      💰 現金投資（<span id="cash-total-label">0</span>円）
+    </button>
+
+    <button class="btn" id="btn-trial" data-blur="1"
+            style="background:#2a2a45;border:1px solid var(--border);color:var(--text-secondary);margin-bottom:10px">
+      📊 仮計算（累計に影響なし）
+    </button>
+
+    <button class="btn btn-hit" id="btn-hit" data-blur="1">🎯 当たり記録</button>
+    <button class="btn" id="btn-kohit" data-blur="1"
+            style="background:linear-gradient(135deg,#2f7bf7,#2fc5f7);color:#fff;margin-bottom:10px">
+      ✨ 小当たり記録
+    </button>
+    <button class="btn btn-sm" id="btn-hit-undo" data-blur="1" disabled
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary);margin-bottom:10px">
+      ↩ 当たり記録を取り消し
+    </button>
+
+    <button class="btn btn-end" id="btn-end" data-blur="1">セッション終了</button>
+
+    <div class="card" id="saved-card">
+      <div class="section-title">台の記録</div>
+      <div class="input-row">
+        <div class="input-group">
+          <label for="sv-no">台番号</label>
+          <input type="number" id="sv-no" inputmode="numeric" pattern="[0-9]*" placeholder="1108" min="0">
+        </div>
+        <div class="input-group">
+          <label for="sv-memo">メモ（任意）</label>
+          <input type="text" id="sv-memo" placeholder="釘・機種など">
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btn-save-machine" data-blur="1" style="margin-bottom:10px">💾 この台を保存</button>
+      <div id="sv-msg" style="display:none;font-size:13px;color:var(--accent-green);text-align:center;margin-bottom:10px"></div>
+      <button id="saved-toggle" style="width:100%;background:none;border:none;border-top:1px solid var(--border);color:var(--text-secondary);font-size:13px;padding:10px 0;cursor:pointer">保存した台 ▼（0件）</button>
+      <div id="saved-list" style="display:none"></div>
+    </div>
+
+    <div id="history-section">
+      <button class="btn btn-sm" id="btn-restore-deleted" data-blur="1" style="display:none;background:transparent;border:1px solid var(--accent-green);color:var(--accent-green);margin-bottom:8px">
+        ↩ 削除した履歴を元に戻す
+      </button>
+      <button id="history-toggle">履歴 ▼</button>
+      <div id="history-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 当たり記録モーダル -->
+<div class="modal-overlay" id="hit-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">🎯 当たり記録</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;text-align:center">
+      当たった時点の数値を入力してください
+    </p>
+    <div class="modal-input-row">
+      <label for="hit-rot-input">現在回転数</label>
+      <input type="number" id="hit-rot-input" data-kb-follow="hit-modal-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    </div>
+    <div class="input-row" style="margin-bottom:4px">
+      <div class="input-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><label for="hit-cho-input" style="font-size:15px;font-weight:600;color:#e8e8f5">貯玉</label><button type="button" class="cho-clear-btn" data-target="hit-cho-input" style="background:none;border:none;color:var(--accent-red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button></div>
+        <input type="number" id="hit-cho-input" data-kb-follow="hit-modal-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div class="input-group">
+        <label for="hit-mochi-input" style="font-size:15px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">持ち玉</label>
+        <input type="number" id="hit-mochi-input" data-kb-follow="hit-modal-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:12px">
+      合計：<span id="hit-total" style="color:var(--accent-green);font-weight:700">0</span>玉
+    </div>
+    <div id="hit-modal-error" class="error-msg"></div>
+    <button class="btn btn-hit" id="hit-modal-confirm" data-blur="1" style="margin-bottom:10px">記録する</button>
+    <button class="btn btn-sm" id="hit-modal-cancel" data-blur="1"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">
+      キャンセル
+    </button>
+  </div>
+</div>
+
+<!-- 現金投資モーダル -->
+<div class="modal-overlay" id="cash-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">💰 現金投資</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;text-align:center">
+      500円 = 125玉
+    </p>
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:13px;color:var(--text-secondary)">合計投資額</div>
+      <div style="font-size:40px;font-weight:700;font-family:var(--font-mono);color:var(--accent-green)" id="cash-amount">0円</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:16px">
+      <button class="btn" id="cash-minus" style="background:var(--accent-red);color:#fff;flex:1">− 500円</button>
+      <button class="btn" id="cash-plus" style="background:var(--accent-green);color:#0f1a14;flex:1">＋ 500円</button>
+    </div>
+    <div class="modal-input-row">
+      <label for="cash-zandama-input">端数の残り玉数（任意）</label>
+      <input type="number" id="cash-zandama-input" data-kb-follow="cash-close" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    </div>
+    <button class="btn btn-sm" id="cash-close" data-blur="1"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">
+      閉じる
+    </button>
+  </div>
+</div>
+
+<!-- 小当たり記録モーダル -->
+<div class="modal-overlay" id="kohit-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">✨ 小当たり記録</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;text-align:center">
+      小当たり後の現在の数値を入力してください
+    </p>
+    <div class="modal-input-row">
+      <label for="kohit-rot-input">現在回転数</label>
+      <input type="number" id="kohit-rot-input" data-kb-follow="kohit-modal-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    </div>
+    <div class="input-row" style="margin-bottom:4px">
+      <div class="input-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><label for="kohit-cho-input" style="font-size:14px;font-weight:600;color:#e8e8f5">貯玉</label><button type="button" class="cho-clear-btn" data-target="kohit-cho-input" style="background:none;border:none;color:var(--accent-red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button></div>
+        <input type="number" id="kohit-cho-input" data-kb-follow="kohit-modal-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div class="input-group">
+        <label for="kohit-mochi-input" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">持ち玉</label>
+        <input type="number" id="kohit-mochi-input" data-kb-follow="kohit-modal-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:12px">
+      合計：<span id="kohit-total" style="color:var(--accent-green);font-weight:700">0</span>玉
+    </div>
+    <button type="button" id="kohit-detail-toggle" style="background:none;border:none;color:var(--text-secondary);font-size:13px;width:100%;cursor:pointer;padding:6px 0;margin-bottom:8px;text-align:center">
+      詳細設定（出玉280・R数2）▼
+    </button>
+    <div id="kohit-detail-fields" style="display:none">
+      <div class="modal-input-row">
+        <label for="kohit-payout-input">小当たり出玉</label>
+        <input type="number" id="kohit-payout-input" inputmode="numeric" pattern="[0-9]*" value="280" min="0">
+      </div>
+      <div class="modal-input-row">
+        <label for="kohit-r-input">獲得R数</label>
+        <input type="number" id="kohit-r-input" inputmode="numeric" pattern="[0-9]*" value="2" min="0">
+      </div>
+    </div>
+    <div class="modal-input-row">
+      <label for="kohit-endrot-input">保留消化後の回転数（任意）</label>
+      <input type="number" id="kohit-endrot-input" inputmode="numeric" pattern="[0-9]*" placeholder="空欄なら現在回転数" min="0">
+    </div>
+    <div id="kohit-modal-error" class="error-msg"></div>
+    <button class="btn" id="kohit-modal-confirm" data-blur="1" style="background:linear-gradient(135deg,#2f7bf7,#2fc5f7);color:#fff;margin-bottom:10px">記録する</button>
+    <button class="btn btn-sm" id="kohit-modal-cancel" data-blur="1"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">
+      キャンセル
+    </button>
+  </div>
+</div>
+
+<!-- 出玉確定モーダル -->
+<div class="modal-overlay" id="payout-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">🔚 出玉確定</div>
+    <!-- 区間結果表示 -->
+    <div style="background:#1a1a2e;border-radius:8px;padding:12px;margin-bottom:14px">
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">この区間の結果</div>
+      <div class="modal-row"><span class="label">区間回転数</span><span class="value" id="payout-sec-rot">---</span></div>
+      <div class="modal-row"><span class="label">使用玉</span><span class="value" id="payout-sec-used">---</span></div>
+      <div class="modal-row"><span class="label">区間回転率</span><span class="value" style="color:var(--accent)" id="payout-sec-rate">---</span></div>
+      <div class="modal-row"><span class="label">確定後の差玉</span><span class="value" id="payout-diff">---</span></div>
+    </div>
+
+    <div style="font-size:15px;font-weight:600;color:#e8e8f5;margin-bottom:8px">出玉確定時の玉数</div>
+    <div class="input-row" style="margin-bottom:4px">
+      <div class="input-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><label for="payout-cho-input" style="font-size:14px;font-weight:600;color:#e8e8f5">貯玉</label><button type="button" class="cho-clear-btn" data-target="payout-cho-input" style="background:none;border:none;color:var(--accent-red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button></div>
+        <input type="number" id="payout-cho-input" data-kb-follow="payout-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div class="input-group">
+        <label for="payout-mochi-input" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">持ち玉</label>
+        <input type="number" id="payout-mochi-input" data-kb-follow="payout-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:8px">
+      合計：<span id="payout-total" style="color:var(--accent-green);font-weight:700">0</span>玉
+    </div>
+
+    <button type="button" id="gain-toggle"
+            style="width:100%;background:none;border:1px dashed var(--border);border-radius:10px;color:var(--text-secondary);font-size:13px;padding:10px 0;margin-bottom:12px;cursor:pointer">
+      ＋ 獲得出玉から計算する ▼
+    </button>
+    <div id="gain-fields" style="display:none;margin-bottom:12px">
+      <div class="modal-input-row" style="margin-bottom:6px">
+        <label for="payout-gain-input">獲得出玉</label>
+        <input type="number" id="payout-gain-input" data-kb-follow="payout-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div id="gain-calc" style="font-size:13px;color:var(--text-secondary);text-align:center">
+        当たり時の玉数 ＋ 獲得出玉 ＝ <span id="gain-total" style="color:var(--accent-green);font-weight:700">---</span>
+      </div>
+    </div>
+
+    <div class="modal-input-row">
+      <label for="payout-endrot-input">時短終了後の回転数（必須）</label>
+      <input type="number" id="payout-endrot-input" data-kb-follow="payout-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    </div>
+    <div class="modal-input-row">
+      <label for="payout-r-input">獲得R数（任意）</label>
+      <input type="number" id="payout-r-input" inputmode="numeric" pattern="[0-9]*" placeholder="空欄OK" min="0">
+    </div>
+    <div id="payout-error" class="error-msg"></div>
+    <button class="btn btn-payout" id="payout-confirm" data-blur="1" style="margin-bottom:10px">確定</button>
+    <button class="btn btn-sm" id="payout-cancel" data-blur="1"
+            style="background:transparent;border:1px solid var(--accent-red);color:var(--accent-red)">
+      ↩ 当たり記録を取り消す（入力をやめる）
+    </button>
+  </div>
+</div>
+
+<!-- 仮計算モーダル -->
+<div class="modal-overlay" id="trial-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">📊 仮計算</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;text-align:center">
+      現在の数値を入力して確認。累計には影響しません。
+    </p>
+    <div class="modal-input-row">
+      <label for="trial-rot">現在回転数</label>
+      <input type="number" id="trial-rot" data-kb-follow="trial-calc" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+    </div>
+    <div class="input-row" style="margin-bottom:4px">
+      <div class="input-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><label for="trial-cho" style="font-size:14px;font-weight:600;color:#e8e8f5">貯玉</label><button type="button" class="cho-clear-btn" data-target="trial-cho" style="background:none;border:none;color:var(--accent-red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button></div>
+        <input type="number" id="trial-cho" data-kb-follow="trial-calc" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div class="input-group">
+        <label for="trial-mochi" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">持ち玉</label>
+        <input type="number" id="trial-mochi" data-kb-follow="trial-calc" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:12px">
+      合計：<span id="trial-total" style="color:var(--accent-green);font-weight:700">0</span>玉
+    </div>
+    <div id="trial-error" class="error-msg"></div>
+    <button class="btn btn-primary" id="trial-calc" style="margin-bottom:10px">計算する</button>
+    <div id="trial-result" style="display:none;margin-bottom:12px">
+      <div class="divider"></div>
+      <div class="modal-row"><span class="label">区間回転数</span><span class="value" id="trial-sec-rot">---</span></div>
+      <div class="modal-row"><span class="label">区間使用玉</span><span class="value" id="trial-sec-used">---</span></div>
+      <div class="modal-row" id="trial-rate-row"><span class="label">区間回転率</span><span class="value" style="color:var(--accent)" id="trial-rate">---</span></div>
+      <div class="modal-row"><span class="label">累計回転率（仮）</span><span class="value" style="color:var(--accent-green)" id="trial-total-rate">---</span></div>
+      <div class="modal-row"><span class="label">現在の差玉</span><span class="value" id="trial-diff">---</span></div>
+    </div>
+    <button class="btn btn-sm" id="trial-close" data-blur="1"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">
+      閉じる
+    </button>
+  </div>
+</div>
+
+<!-- セッション終了確認モーダル -->
+<div class="modal-overlay" id="end-confirm-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">セッション終了</div>
+    <p style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:14px">
+      終了時の数値を入力（玉数が空欄なら現在の持ち玉を使用）
+    </p>
+    <div class="modal-input-row">
+      <label for="end-rot-input" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">最終回転数（任意）</label>
+      <input type="number" id="end-rot-input" inputmode="numeric" pattern="[0-9]*" placeholder="空欄なら現在回転数" min="0">
+    </div>
+    <div class="input-row" style="margin-bottom:4px">
+      <div class="input-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label for="end-cho-input" style="font-size:14px;font-weight:600;color:#e8e8f5">貯玉</label>
+          <button type="button" class="cho-clear-btn" data-target="end-cho-input" style="background:none;border:none;color:var(--accent-red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+        </div>
+        <input type="number" id="end-cho-input" data-kb-follow="end-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div class="input-group">
+        <label for="end-mochi-input" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">持ち玉</label>
+        <input type="number" id="end-mochi-input" data-kb-follow="end-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:16px">
+      合計：<span id="end-total" style="color:var(--accent-green);font-weight:700">0</span>玉
+    </div>
+    <button class="btn btn-end" id="end-confirm-yes" data-blur="1" style="margin-bottom:10px">終了して結果を見る</button>
+    <button class="btn btn-sm" id="end-confirm-no" data-blur="1"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">
+      キャンセル
+    </button>
+  </div>
+</div>
+
+<!-- セッション終了モーダル -->
+<div class="modal-overlay" id="end-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">セッション結果</div>
+    <div class="modal-row"><span class="label">最終差玉</span><span class="value" id="end-diff">---</span></div>
+    <div class="modal-row"><span class="label">累計回転数</span><span class="value" id="end-rot">---</span></div>
+    <div class="modal-row"><span class="label">累計使用玉</span><span class="value" id="end-used">---</span></div>
+    <div class="modal-row"><span class="label">累計回転率</span><span class="value" id="end-rate">---</span></div>
+    <div class="modal-row"><span class="label">回転時速</span><span class="value" id="end-speed">---</span></div>
+    <div class="modal-row" id="end-avg1r-row" style="display:none">
+      <span class="label">平均1R出玉</span><span class="value" id="end-avg1r">---</span>
+    </div>
+    <div class="divider"></div>
+    <div id="end-history-label" style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">当たり履歴</div>
+    <div id="end-history"></div>
+    <div style="margin-top:20px">
+      <button class="btn btn-end" id="end-confirm" data-blur="1" style="margin-bottom:10px">OK（リセット）</button>
+      <button class="btn btn-sm" id="end-cancel" data-blur="1"
+              style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">戻る</button>
+    </div>
+  </div>
+</div>
+
+<!-- 開始値の修正モーダル -->
+<div class="modal-overlay" id="startedit-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">⚙️ 開始時の数値を修正</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;text-align:center">
+      修正すると累計と回転率を計算し直します
+    </p>
+    <div class="modal-input-row">
+      <label for="se-rot">開始回転数</label>
+      <input type="number" id="se-rot" inputmode="numeric" pattern="[0-9]*" min="0">
+    </div>
+    <div class="input-row" style="margin-bottom:4px">
+      <div class="input-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label for="se-cho" style="font-size:14px;font-weight:600;color:#e8e8f5">貯玉</label>
+          <button type="button" class="cho-clear-btn" data-target="se-cho" style="background:none;border:none;color:var(--accent-red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+        </div>
+        <input type="number" id="se-cho" data-kb-follow="se-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div class="input-group">
+        <label for="se-mochi" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">持ち玉</label>
+        <input type="number" id="se-mochi" data-kb-follow="se-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:16px">
+      合計：<span id="se-total" style="color:var(--accent-green);font-weight:700">0</span>玉
+    </div>
+    <div id="se-error" class="error-msg"></div>
+    <button class="btn btn-primary" id="se-confirm" data-blur="1" style="margin-bottom:10px">修正する</button>
+    <button class="btn btn-sm" id="se-cancel" data-blur="1"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">キャンセル</button>
+  </div>
+</div>
+
+<!-- 履歴編集モーダル -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">✏️ 履歴を編集</div>
+    <div class="modal-input-row">
+      <label for="edit-hit-rot">当たり時の回転数</label>
+      <input type="number" id="edit-hit-rot" inputmode="numeric" pattern="[0-9]*" min="0">
+    </div>
+    <div style="font-size:15px;font-weight:600;color:#e8e8f5;margin-bottom:8px">当たり時の玉数</div>
+    <div class="input-row" style="margin-bottom:4px">
+      <div class="input-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label for="edit-hit-cho" style="font-size:14px;font-weight:600;color:#e8e8f5">貯玉</label>
+          <button type="button" class="cho-clear-btn" data-target="edit-hit-cho" style="background:none;border:none;color:var(--accent-red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+        </div>
+        <input type="number" id="edit-hit-cho" data-kb-follow="edit-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div class="input-group">
+        <label for="edit-hit-mochi" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">持ち玉</label>
+        <input type="number" id="edit-hit-mochi" data-kb-follow="edit-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:16px">
+      合計：<span id="edit-hit-total" style="color:var(--accent-green);font-weight:700">0</span>玉
+    </div>
+
+    <div style="font-size:15px;font-weight:600;color:#e8e8f5;margin-bottom:8px">出玉確定時の玉数</div>
+    <div class="input-row" style="margin-bottom:4px">
+      <div class="input-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label for="edit-payout-cho" style="font-size:14px;font-weight:600;color:#e8e8f5">貯玉</label>
+          <button type="button" class="cho-clear-btn" data-target="edit-payout-cho" style="background:none;border:none;color:var(--accent-red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+        </div>
+        <input type="number" id="edit-payout-cho" data-kb-follow="edit-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+      <div class="input-group">
+        <label for="edit-payout-mochi" style="font-size:14px;font-weight:600;color:#e8e8f5;display:block;margin-bottom:8px">持ち玉</label>
+        <input type="number" id="edit-payout-mochi" data-kb-follow="edit-confirm" inputmode="numeric" pattern="[0-9]*" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:16px">
+      合計：<span id="edit-payout-total" style="color:var(--accent-green);font-weight:700">0</span>玉
+    </div>
+    <div class="modal-input-row">
+      <label for="edit-endrot">時短終了後の回転数</label>
+      <input type="number" id="edit-endrot" inputmode="numeric" pattern="[0-9]*" min="0">
+    </div>
+    <div class="modal-input-row">
+      <label for="edit-r">獲得R数（任意）</label>
+      <input type="number" id="edit-r" inputmode="numeric" pattern="[0-9]*" placeholder="空欄OK" min="0">
+    </div>
+    <div id="edit-error" class="error-msg"></div>
+    <button class="btn btn-primary" id="edit-confirm" data-blur="1" style="margin-bottom:10px">保存する</button>
+    <button class="btn btn-sm" id="edit-cancel" data-blur="1"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">キャンセル</button>
+  </div>
+</div>
+
+<!-- 小当たり出玉・R数変更確認モーダル -->
+<div class="modal-overlay" id="kohit-value-confirm-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">⚠️ 通常と異なる値です</div>
+    <p style="font-size:14px;color:var(--text-secondary);text-align:center;margin-bottom:20px" id="kohit-value-confirm-desc"></p>
+    <button class="btn btn-hit" id="kohit-value-confirm-yes" data-blur="1" style="margin-bottom:10px">この内容で記録する</button>
+    <button class="btn btn-sm" id="kohit-value-confirm-no" data-blur="1"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">戻って修正</button>
+  </div>
+</div>
+
+<!-- 貯玉クリア確認モーダル -->
+<div class="modal-overlay" id="cho-clear-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">貯玉を消しますか？</div>
+    <p style="font-size:14px;color:var(--text-secondary);text-align:center;margin-bottom:20px">
+      貯玉欄を0にします。
+    </p>
+    <button class="btn btn-end" id="cho-clear-yes" data-blur="1" style="margin-bottom:10px">消す</button>
+    <button class="btn btn-sm" id="cho-clear-no" data-blur="1"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">キャンセル</button>
+  </div>
+</div>
+
+<!-- 履歴削除確認モーダル -->
+<div class="modal-overlay" id="del-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">履歴を削除しますか？</div>
+    <p style="font-size:14px;color:var(--text-secondary);text-align:center;margin-bottom:20px" id="del-modal-desc"></p>
+    <button class="btn btn-end" id="del-confirm" data-blur="1" style="margin-bottom:10px">削除する</button>
+    <button class="btn btn-sm" id="del-cancel" data-blur="1"
+            style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">キャンセル</button>
+  </div>
+</div>
+
+<script src="./app.js"></script>
+</body>
+</html>

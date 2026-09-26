@@ -1797,12 +1797,70 @@ function initSwipe() {
   }, { passive: true });
 }
 
+
+// ===== iOS キーボード対策 =====
+function initKeyboardFix() {
+  const vv = window.visualViewport;
+  const spacer = document.createElement('div');
+  spacer.id = 'kb-spacer';
+  spacer.style.height = '0px';
+  document.body.appendChild(spacer);
+
+  const isField = (el) => !!el && !!el.tagName && /^(INPUT|TEXTAREA)$/.test(el.tagName);
+
+  function kbHeight() {
+    if (!vv) return 0;
+    const h = window.innerHeight - vv.height - vv.offsetTop;
+    return h > 80 ? Math.round(h) : 0;
+  }
+  function ensureVisible(el) {
+    if (!isField(el)) return;
+    let target = el;
+    const f = el.getAttribute('data-kb-follow');
+    if (f && document.getElementById(f)) target = document.getElementById(f);
+    const r = target.getBoundingClientRect();
+    if (!r.height) return;
+    const vis = vv ? (vv.offsetTop + vv.height) : window.innerHeight;
+    const over = r.bottom + 14 - vis;
+    if (over <= 0) return;
+    const sheet = el.closest ? el.closest('.modal-sheet') : null;
+    if (sheet && sheet.scrollHeight > sheet.clientHeight + 2) sheet.scrollTop += over;
+    else window.scrollBy(0, over);
+  }
+  function apply(doScroll) {
+    const kb = kbHeight();
+    document.documentElement.style.setProperty('--kb', kb + 'px');
+    spacer.style.height = kb ? (kb + 28) + 'px' : '0px';
+    if (doScroll && kb) ensureVisible(document.activeElement);
+  }
+  if (vv) {
+    vv.addEventListener('resize', () => apply(true));
+    vv.addEventListener('scroll', () => apply(false));
+  }
+  document.addEventListener('focusin', (e) => {
+    if (!isField(e.target)) return;
+    setTimeout(() => apply(true), 60);
+    setTimeout(() => apply(true), 350);
+  });
+  // ボタンを押してもキーボードが閉じないようにする（data-blur="1" だけは閉じる）
+  document.addEventListener('mousedown', (e) => {
+    const t = e.target && e.target.closest ? e.target.closest('button') : null;
+    if (!t) return;
+    const a = document.activeElement;
+    if (!isField(a)) return;
+    if (t.getAttribute('data-blur') === '1') { a.blur(); return; }
+    e.preventDefault();
+  }, true);
+  apply(false);
+}
+
 // ===== 起動 =====
 document.addEventListener('DOMContentLoaded', () => {
   loadState();
   initEvents();
   initSwipe();
   initDraftWatchers();
+  initKeyboardFix();
   try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
   renderAll();
   renderSavedMachines();
