@@ -28,6 +28,8 @@ function createTabData(name) {
     hitBalls: 0,
     hitPrevRot: 0,
     hitPrevBalls: 0,
+    hitCho: 0,
+    hitMochi: 0,
     hitSnapshot: null,
     deletedBackup: null,
     cashInvested: 0,
@@ -475,6 +477,8 @@ function handleHitConfirm() {
   tab.hitPrevBalls = tab.hitSnapshot.prevBalls;
   tab.hitRot = rot;
   tab.hitBalls = balls;
+  tab.hitCho = cho;      // 当たり時の貯玉
+  tab.hitMochi = mochi;  // 当たり時の持ち玉
   tab.isHit = true;
 
   document.getElementById('hit-modal-confirm').textContent = '記録する';
@@ -622,6 +626,10 @@ function handleKohitConfirm() {
     isKo: true,
     hitRot: rot,
     hitBalls,
+    hitCho: kohitCho,
+    hitMochi: Math.max(0, hitBalls - kohitCho),
+    payoutCho: kohitCho,
+    payoutMochi: kohitMochi,
     payoutBalls: curBalls,
     gained: koPayout,
     r: koR > 0 ? koR : null,
@@ -681,6 +689,10 @@ function openPayoutModal() {
   document.getElementById('payout-total').textContent = '0';
   document.getElementById('payout-r-input').value = '';
   document.getElementById('payout-endrot-input').value = '';
+  document.getElementById('payout-gain-input').value = '';
+  document.getElementById('gain-fields').style.display = 'none';
+  document.getElementById('gain-toggle').textContent = '＋ 獲得出玉から計算する ▼';
+  renderGainTotal();
   clearError('payout-error');
 
   renderPayoutSection(tab);
@@ -700,18 +712,42 @@ function renderPayoutSection(tab) {
   updatePayoutDiff();
 }
 
+// 獲得出玉から求まる総持ち玉を表示
+function renderGainTotal() {
+  const el = document.getElementById('gain-total');
+  if (!el) return;
+  const tab = getTab();
+  const v = document.getElementById('payout-gain-input').value.trim();
+  const g = parseInt(v, 10);
+  if (v === '' || isNaN(g) || !tab) { el.textContent = '---'; return; }
+  el.textContent = (tab.hitBalls + g).toLocaleString() + '玉';
+}
+
+// 確定後の総持ち玉（獲得出玉が入っていればそちらを優先）
+function payoutBallsNow() {
+  const tab = getTab();
+  const gainVal = document.getElementById('payout-gain-input').value.trim();
+  if (gainVal !== '') {
+    const g = parseInt(gainVal, 10);
+    if (!isNaN(g)) return tab.hitBalls + g;
+    return null;
+  }
+  const choVal = document.getElementById('payout-cho-input').value.trim();
+  const mochiVal = document.getElementById('payout-mochi-input').value.trim();
+  if (choVal === '' && mochiVal === '') return null;
+  return (parseInt(choVal, 10) || 0) + (parseInt(mochiVal, 10) || 0);
+}
+
 // 入力中の玉数から「確定後の差玉」をリアルタイム表示
 function updatePayoutDiff() {
   const tab = getTab();
-  const choVal = document.getElementById('payout-cho-input').value.trim();
-  const mochiVal = document.getElementById('payout-mochi-input').value.trim();
   const el = document.getElementById('payout-diff');
-  if (choVal === '' && mochiVal === '') {
+  const balls = payoutBallsNow();
+  if (balls === null) {
     el.textContent = '---';
     el.style.color = '';
     return;
   }
-  const balls = (parseInt(choVal, 10) || 0) + (parseInt(mochiVal, 10) || 0);
   setDiffText(el, calcDiff(tab, balls));
 }
 
@@ -723,16 +759,29 @@ function closePayoutModal() {
 function handlePayoutConfirm() {
   const choVal = document.getElementById('payout-cho-input').value.trim();
   const mochiVal = document.getElementById('payout-mochi-input').value.trim();
+  const gainVal = document.getElementById('payout-gain-input').value.trim();
   const rVal = document.getElementById('payout-r-input').value.trim();
   const endRotVal = document.getElementById('payout-endrot-input').value.trim();
   clearError('payout-error');
 
-  if (choVal === '' && mochiVal === '') { showError('payout-error', '玉数を入力してください'); return; }
-  const cho = choVal === '' ? 0 : parseInt(choVal, 10);
-  const mochi = mochiVal === '' ? 0 : parseInt(mochiVal, 10);
-  const balls = cho + mochi;
-  if (isNaN(cho) || isNaN(mochi) || cho < 0 || mochi < 0) { showError('payout-error', '正しい数値を入力してください'); return; }
-  getTab().lastChodama = cho;
+  const t0 = getTab();
+  let cho, mochi, balls;
+
+  if (gainVal !== '') {
+    // 獲得出玉から計算：当たり時の玉数 ＋ 獲得出玉
+    const gain = parseInt(gainVal, 10);
+    if (isNaN(gain) || gain < 0) { showError('payout-error', '獲得出玉を正しく入力してください'); return; }
+    balls = t0.hitBalls + gain;
+    cho = t0.hitCho || 0;            // 貯玉はそのまま引き継ぐ
+    mochi = Math.max(0, balls - cho);
+  } else {
+    if (choVal === '' && mochiVal === '') { showError('payout-error', '玉数か獲得出玉を入力してください'); return; }
+    cho = choVal === '' ? 0 : parseInt(choVal, 10);
+    mochi = mochiVal === '' ? 0 : parseInt(mochiVal, 10);
+    if (isNaN(cho) || isNaN(mochi) || cho < 0 || mochi < 0) { showError('payout-error', '正しい数値を入力してください'); return; }
+    balls = cho + mochi;
+  }
+  t0.lastChodama = cho;
 
   if (endRotVal === '') { showError('payout-error', '時短終了後の回転数を入力してください'); return; }
   const endRot = parseInt(endRotVal, 10);
@@ -760,6 +809,10 @@ function handlePayoutConfirm() {
   tab.history.push({
     hitRot: tab.hitRot,
     hitBalls: tab.hitBalls,
+    hitCho: tab.hitCho || 0,        // 当たり時の貯玉
+    hitMochi: (tab.hitMochi !== undefined) ? tab.hitMochi : tab.hitBalls,
+    payoutCho: cho,                 // 出玉確定時の貯玉
+    payoutMochi: mochi,
     payoutBalls: balls,
     gained,
     r: (rVal !== '' && parseInt(rVal, 10) > 0) ? parseInt(rVal, 10) : null,
@@ -783,6 +836,8 @@ function handlePayoutConfirm() {
   tab.isHit = false;
   tab.hitRot = 0;
   tab.hitBalls = 0;
+  tab.hitCho = 0;
+  tab.hitMochi = 0;
 
   // 今回の区間回転率を次回の比較用に保存
   if (secRate !== null) tab.lastSecRate = secRate;
@@ -1050,12 +1105,16 @@ function openEditModal(idx) {
   const h = tab.history[idx];
   pendingEditIndex = idx;
   document.getElementById('edit-hit-rot').value = h.hitRot;
-  // 貯玉/持ち玉の内訳は保存されていないため、合計を持ち玉欄に、貯玉は空欄で表示
-  document.getElementById('edit-hit-cho').value = '';
-  document.getElementById('edit-hit-mochi').value = h.hitBalls;
+  // 貯玉/持ち玉の内訳（古い履歴は内訳がないので合計を持ち玉側に入れる）
+  const hCho = h.hitCho || 0;
+  const hMochi = (h.hitMochi !== undefined && h.hitMochi !== null) ? h.hitMochi : (h.hitBalls - hCho);
+  const pCho = h.payoutCho || 0;
+  const pMochi = (h.payoutMochi !== undefined && h.payoutMochi !== null) ? h.payoutMochi : (h.payoutBalls - pCho);
+  document.getElementById('edit-hit-cho').value = hCho > 0 ? hCho : '';
+  document.getElementById('edit-hit-mochi').value = hMochi;
   document.getElementById('edit-hit-total').textContent = h.hitBalls.toLocaleString();
-  document.getElementById('edit-payout-cho').value = '';
-  document.getElementById('edit-payout-mochi').value = h.payoutBalls;
+  document.getElementById('edit-payout-cho').value = pCho > 0 ? pCho : '';
+  document.getElementById('edit-payout-mochi').value = pMochi;
   document.getElementById('edit-payout-total').textContent = h.payoutBalls.toLocaleString();
   document.getElementById('edit-endrot').value = h.endRot !== undefined && h.endRot !== null ? h.endRot : '';
   document.getElementById('edit-r').value = h.r !== undefined && h.r !== null ? h.r : '';
@@ -1127,7 +1186,11 @@ function handleEditConfirm() {
   // 履歴を更新
   h.hitRot = hitRot;
   h.hitBalls = hitBalls;
+  h.hitCho = hitCho;
+  h.hitMochi = hitMochi;
   h.payoutBalls = payoutBalls;
+  h.payoutCho = payoutCho;
+  h.payoutMochi = payoutMochi;
   h.endRot = endRot;
   h.gained = gained;
   h.r = r;
@@ -1485,6 +1548,21 @@ function initEvents() {
   ['payout-cho-input', 'payout-mochi-input'].forEach(id => {
     document.getElementById(id).addEventListener('input', updatePayoutDiff);
   });
+  // 獲得出玉の開閉と再計算
+  document.getElementById('gain-toggle').addEventListener('click', () => {
+    const f = document.getElementById('gain-fields');
+    const t = document.getElementById('gain-toggle');
+    const open = f.style.display !== 'none';
+    f.style.display = open ? 'none' : 'block';
+    t.textContent = open ? '＋ 獲得出玉から計算する ▼' : '獲得出玉を使わない ▲';
+    if (open) document.getElementById('payout-gain-input').value = '';
+    renderGainTotal();
+    updatePayoutDiff();
+  });
+  document.getElementById('payout-gain-input').addEventListener('input', () => {
+    renderGainTotal();
+    updatePayoutDiff();
+  });
   autoFillChodamaOnMochi('trial-cho', 'trial-mochi', 'trial-total');
   autoFillChodamaOnMochi('end-cho-input', 'end-mochi-input', 'end-total');
   autoFillChodamaOnMochi('edit-hit-cho', 'edit-hit-mochi', 'edit-hit-total');
@@ -1546,7 +1624,7 @@ const DRAFT_INPUT_IDS = [
   'hit-rot-input', 'hit-cho-input', 'hit-mochi-input',
   'kohit-rot-input', 'kohit-cho-input', 'kohit-mochi-input',
   'kohit-payout-input', 'kohit-r-input', 'kohit-endrot-input',
-  'payout-cho-input', 'payout-mochi-input', 'payout-endrot-input', 'payout-r-input',
+  'payout-cho-input', 'payout-mochi-input', 'payout-gain-input', 'payout-endrot-input', 'payout-r-input',
   'trial-rot', 'trial-cho', 'trial-mochi',
   'end-rot-input', 'end-cho-input', 'end-mochi-input',
   'edit-hit-rot', 'edit-hit-cho', 'edit-hit-mochi',

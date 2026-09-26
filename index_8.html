@@ -1,0 +1,1953 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#14120f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ハネモノ計算">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>ハネモノ計算ツール</title>
+<style>
+:root{
+  --bg:#14120f; --bg-card:#1f1b16; --bg-input:#181410; --bg-soft:#2b241c;
+  --border:#3c332a; --text:#f4ede4; --text-sub:#b4a694; --text-muted:#7e7263;
+  --amber:#ff9f43; --teal:#38d6b0; --green:#4ade80; --red:#ff6b6b; --sky:#5ec8f5;
+  --radius:14px; --mono:"SF Mono",Menlo,Consolas,monospace;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  font-size:15px;line-height:1.6}
+.wrap{max-width:480px;margin:0 auto;padding:16px 14px 60px}
+h1{font-size:18px;margin:0 0 2px;text-align:center;color:var(--amber)}
+.sub{font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:16px}
+
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.card-title{font-size:13px;color:var(--amber);font-weight:700;margin-bottom:12px}
+
+.seg{display:flex;gap:8px;margin-bottom:14px}
+.seg button{flex:1;padding:12px 6px;border-radius:12px;border:1px solid var(--border);
+  background:var(--bg-card);color:var(--text-sub);font-size:14px;font-weight:700;cursor:pointer}
+.seg button.on{background:var(--amber);border-color:var(--amber);color:#2a1a08}
+.seg.sub-seg button{padding:10px 4px;font-size:13px}
+.seg.sub-seg button.on{background:var(--teal);border-color:var(--teal);color:#06201a}
+#r-seg,#lv-r-seg{flex-wrap:wrap}
+#r-seg button,#lv-r-seg button{flex:0 0 auto;min-width:58px}
+.machine-select{
+  font-size:17px;font-weight:700;color:var(--amber);
+  background:var(--bg-soft);border:1px solid var(--amber);border-radius:12px;
+  padding:14px 40px 14px 16px;text-align:left;width:100%;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff9f43' stroke-width='2.5' stroke-linecap='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat:no-repeat;background-position:right 14px center;background-size:20px;
+}
+
+label{display:block;font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px}
+input[type=number],select{width:100%;padding:14px;border-radius:10px;border:1px solid var(--border);
+  background:var(--bg-input);color:var(--text);font-size:19px;font-family:var(--mono);
+  text-align:right;-webkit-appearance:none;appearance:none}
+select{text-align:left;font-family:inherit;font-size:15px}
+input:focus,select:focus{outline:none;border-color:var(--amber)}
+.row{display:flex;gap:10px}
+.row>div{flex:1}
+.field{margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.hint{font-size:11px;color:var(--text-muted);margin-top:6px}
+
+.sign-wrap{display:flex;gap:8px;align-items:stretch}
+.sign-btn{width:64px;flex:none;border-radius:10px;border:1px solid var(--border);
+  background:var(--bg-soft);color:var(--teal);font-size:20px;font-weight:700;cursor:pointer}
+.sign-btn.minus{color:var(--red);border-color:var(--red)}
+
+.btn{width:100%;padding:14px;border-radius:12px;border:none;font-size:15px;font-weight:700;cursor:pointer}
+.btn-add{background:var(--amber);color:#2a1a08}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text-sub)}
+.btn-undo{background:transparent;border:1px solid var(--teal);color:var(--teal);margin-top:10px}
+.btn-link{background:transparent;border:1px dashed var(--teal);color:var(--teal);font-size:13px;padding:11px}
+
+.hist{margin-top:12px;border-top:1px solid var(--border);display:flex;flex-direction:column}
+.hist-item{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--border)}
+.hist-r{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--amber);
+  background:var(--bg-soft);border-radius:8px;padding:4px 10px;min-width:46px;text-align:center}
+.hist-balls{font-family:var(--mono);font-size:16px;flex:1}
+.hist-per{font-size:11px;color:var(--text-muted)}
+.del{background:none;border:none;color:var(--red);font-size:17px;cursor:pointer;padding:4px 6px}
+.empty{color:var(--text-muted);font-size:13px;text-align:center;padding:14px}
+
+.big{text-align:center;padding:6px 0 2px}
+.big .lbl{font-size:12px;color:var(--text-sub)}
+.big .val{font-size:52px;font-weight:700;font-family:var(--mono);color:var(--amber);line-height:1.1}
+.big .val.na{font-size:26px;color:var(--text-muted)}
+.big .unit{font-size:13px;color:var(--text-sub)}
+.big.teal .val{color:var(--teal)}
+
+.kv{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px}
+.kv:last-child{border-bottom:none}
+.kv .k{color:var(--text-sub)}
+.kv .v{font-family:var(--mono);font-weight:700}
+.green{color:var(--green)}.red{color:var(--red)}.teal{color:var(--teal)}.amber{color:var(--amber)}
+
+.bar-row{margin-bottom:12px}
+.bar-row:last-child{margin-bottom:0}
+.bar-head{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
+.bar-head .n{font-family:var(--mono);color:var(--text-sub)}
+.bar{height:9px;border-radius:5px;background:var(--bg-soft);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:5px;background:var(--amber)}
+
+.saved-item{border-bottom:1px solid var(--border);padding:12px 2px;display:flex;gap:10px;align-items:flex-start}
+.saved-item:last-child{border-bottom:none}
+.saved-main{flex:1;min-width:0}
+.saved-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.saved-no{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--amber)}
+.saved-date{font-size:11px;color:var(--text-muted)}
+.saved-rate{font-family:var(--mono);font-size:15px;font-weight:700}
+.saved-sub{font-size:12px;color:var(--text-sub);font-family:var(--mono);margin-top:2px}
+.saved-memo{font-size:12px;color:var(--text-muted);margin-top:2px;word-break:break-all}
+.verdict{text-align:center;font-size:15px;font-weight:700;padding:12px;border-radius:10px;margin-top:12px;background:var(--bg-soft)}
+.border-box{background:var(--bg-soft);border-radius:10px;padding:12px;text-align:center;margin-top:12px}
+.border-box .lbl{font-size:12px;color:var(--text-sub)}
+.border-box .val{font-size:30px;font-weight:700;font-family:var(--mono);color:var(--teal)}
+.border-box .unit{font-size:12px;color:var(--text-sub)}
+
+/* 実戦記録 */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;display:none;align-items:flex-end;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-sheet{background:var(--bg-card);border-radius:16px 16px 0 0;padding:24px 18px calc(env(safe-area-inset-bottom,0px) + 24px);width:100%;max-width:480px;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:16px;text-align:center;color:var(--amber)}
+.err{display:none;font-size:13px;color:var(--red);background:var(--bg-input);border:1px solid var(--red);border-radius:10px;padding:10px;margin-bottom:10px}
+.err.on{display:block}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.stat-box{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
+.stat-box .l{font-size:12px;color:var(--text-sub)}
+.stat-box .v{font-size:22px;font-weight:700;font-family:var(--mono)}
+.hit-banner{display:none;background:linear-gradient(135deg,#ff9f43,#ff6b6b);color:#2a1a08;font-weight:700;text-align:center;padding:12px;border-radius:12px;margin-bottom:14px}
+.hit-banner.on{display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1 id="machine-title">おだてブタ2 計算ツール</h1>
+  <div class="sub" id="machine-sub">Pポチッと一発おだてブタ2 / 1k = 250玉</div>
+
+  <!-- 機種切替 -->
+  <div style="margin-bottom:14px">
+    <select id="machine-select" class="machine-select"></select>
+  </div>
+
+  <!-- 画面切替 -->
+  <div class="seg">
+    <button id="tab-live" class="on">実戦記録</button>
+    <button id="tab-calc">逆算</button>
+    <button id="tab-ev">期待値</button>
+  </div>
+
+<!-- ===== 実戦記録画面 ===== -->
+<div id="view-live">
+
+  <!-- 開始前 -->
+  <div class="card" id="live-start">
+    <div class="card-title">セッション開始</div>
+    <div class="field">
+      <label for="lv-start-rot">開始時の鳴き数</label>
+      <input type="number" id="lv-start-rot" inputmode="numeric" placeholder="0" min="0">
+    </div>
+    <div class="row field">
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label for="lv-start-cho" style="margin:0">貯玉</label>
+          <button type="button" class="cho-clear-btn" data-target="lv-start-cho" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+        </div>
+        <input type="number" id="lv-start-cho" inputmode="numeric" placeholder="0" min="0">
+      </div>
+      <div>
+        <label for="lv-start-mochi">持ち玉</label>
+        <input type="number" id="lv-start-mochi" inputmode="numeric" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-sub);text-align:center;margin-bottom:14px">
+      合計：<span id="lv-start-total" style="color:var(--teal);font-weight:700">0</span>玉
+    </div>
+    <div id="lv-start-err" class="err"></div>
+    <button class="btn btn-add" id="lv-start-btn">▶ セッション開始</button>
+  </div>
+
+  <!-- 開始後 -->
+  <div id="live-session" style="display:none">
+    <div class="card">
+      <div class="big">
+        <div class="lbl">累計回転率</div>
+        <div class="val na" id="lv-rate">---</div>
+        <div class="unit" id="lv-rate-unit"></div>
+      </div>
+      <div class="kv" style="margin-top:10px"><span class="k">鳴きボーダー</span><span class="v teal" id="lv-border">---</span></div>
+      <div class="kv"><span class="k">ボーダーとの差</span><span class="v" id="lv-bdiff">---</span></div>
+    </div>
+
+    <div class="hit-banner" id="lv-banner"></div>
+
+    <div class="stat-grid">
+      <div class="stat-box"><div class="l">累計の鳴き数</div><div class="v" id="lv-total-rot">0</div></div>
+      <div class="stat-box"><div class="l">現在の玉数</div><div class="v" id="lv-balls">0</div></div>
+      <div class="stat-box"><div class="l">現在の鳴き数</div><div class="v" id="lv-cur-rot">0</div></div>
+      <div class="stat-box"><div class="l">差玉</div><div class="v" id="lv-diff">0</div></div>
+      <div class="stat-box"><div class="l">当たり回数</div><div class="v" id="lv-hits">0</div></div>
+      <div class="stat-box"><div class="l">大当たり確率</div><div class="v" id="lv-prob">---</div></div>
+    </div>
+
+    <button class="btn btn-add" id="lv-hit-btn" style="margin-bottom:10px">🎯 当たり記録</button>
+    <button class="btn btn-ghost" id="lv-end-btn" style="border-color:var(--red);color:var(--red);margin-bottom:14px">セッション終了</button>
+
+    <div class="card">
+      <div class="card-title">当たり履歴</div>
+      <button type="button" id="lv-hist-toggle" style="width:100%;background:none;border:none;color:var(--text-sub);font-size:13px;padding:6px 0;cursor:pointer">履歴を隠す ↑</button>
+      <div id="lv-hist"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 逆算画面 ===== -->
+<div id="view-calc" style="display:none">
+
+  <div class="seg sub-seg" id="mode-seg">
+    <button id="mode-hist" class="on">履歴入力</button>
+    <button id="mode-fix">出玉固定</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">データ機の数値</div>
+    <div class="field">
+      <label for="total-rot">総回転数（鳴き回数）</label>
+      <input type="number" id="total-rot" inputmode="numeric" placeholder="0" min="0">
+    </div>
+    <div class="field">
+      <label for="diff">差玉</label>
+      <div class="sign-wrap">
+        <button type="button" class="sign-btn" id="diff-sign">＋</button>
+        <input type="number" id="diff" inputmode="numeric" placeholder="0">
+      </div>
+      <div class="hint">マイナスのときは左のボタンで − に切り替え</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="big">
+      <div class="lbl">逆算した回転率</div>
+      <div class="val na" id="rate">---</div>
+      <div class="unit" id="rate-unit"></div>
+    </div>
+    <div style="margin-top:14px">
+      <div class="kv"><span class="k">総獲得出玉</span><span class="v" id="r-gain">---</span></div>
+      <div class="kv"><span class="k">通常時の使用玉</span><span class="v" id="r-used">---</span></div>
+      <div class="kv"><span class="k">当たり回数</span><span class="v" id="r-count">---</span></div>
+      <div class="kv"><span class="k">大当たり確率</span><span class="v teal" id="r-prob">---</span></div>
+      <div class="kv"><span class="k">総R数</span><span class="v" id="r-total-r">---</span></div>
+      <div class="kv"><span class="k">平均R数</span><span class="v teal" id="r-avg-r">---</span></div>
+      <div class="kv"><span class="k">1Rあたり実測出玉</span><span class="v" id="r-per-r">---</span></div>
+      <div class="kv"><span class="k">1当たり平均出玉</span><span class="v" id="r-avg-gain">---</span></div>
+    </div>
+    <div id="calc-note" style="font-size:13px;color:var(--text-muted);text-align:center;margin-top:12px">総回転数と差玉、出玉を入力してください</div>
+  </div>
+
+  <div class="card" id="panel-hist">
+    <div class="card-title">大当たり履歴（実測出玉）</div>
+    <div class="row field">
+      <div style="flex:0 0 108px">
+        <label>当たり回数</label>
+        <div id="hit-count-box" style="background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+          <span style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--amber)" id="hit-count-val">0</span>
+          <span style="font-size:13px;color:var(--text-sub)">回</span>
+        </div>
+      </div>
+      <div>
+        <label for="in-balls">獲得出玉</label>
+        <input type="number" id="in-balls" inputmode="numeric" placeholder="1053" min="0">
+      </div>
+    </div>
+    <select id="in-r" style="display:none"></select>
+    <label style="margin-bottom:6px">R数（自動判定・タップで変更）</label>
+    <div class="seg sub-seg" id="r-seg" style="margin-bottom:6px"></div>
+    <div class="hint" style="margin:0 0 10px" id="auto-r-hint">出玉からR数を自動で判定します</div>
+    <div id="add-warn" style="display:none;font-size:13px;color:var(--red);background:var(--bg-input);border:1px solid var(--red);border-radius:10px;padding:10px;margin-bottom:10px"></div>
+    <button class="btn btn-add" id="btn-add">＋ 追加</button>
+    <button class="btn btn-undo" id="btn-undo" style="display:none">↩ 削除を元に戻す</button>
+    <button type="button" id="hist-toggle" style="width:100%;background:none;border:none;border-top:1px solid var(--border);color:var(--text-sub);font-size:13px;padding:10px 0;margin-top:12px;cursor:pointer">履歴を隠す ↑</button>
+    <div class="hist" id="hist" style="border-top:none;margin-top:0"></div>
+  </div>
+
+  <div class="card" id="panel-fix" style="display:none">
+    <div class="card-title">出玉固定（概算）</div>
+    <div class="field">
+      <label for="per-r">1Rあたりの出玉</label>
+      <input type="number" id="per-r" inputmode="numeric" value="117" min="0">
+      <div class="hint" id="per-r-hint">実質9R=1053玉 / 4R=468玉 / 2R=234玉（1R約117玉）</div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="cnt2" id="lbl-cnt2">2R 回数</label>
+        <input type="number" id="cnt2" inputmode="numeric" placeholder="0" min="0">
+      </div>
+      <div class="field">
+        <label for="cnt4" id="lbl-cnt4">4R 回数</label>
+        <input type="number" id="cnt4" inputmode="numeric" placeholder="0" min="0">
+      </div>
+      <div class="field">
+        <label for="cnt9" id="lbl-cnt9">9R 回数</label>
+        <input type="number" id="cnt9" inputmode="numeric" placeholder="0" min="0">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">R振り分け（実測）</div>
+    <div id="dist"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">台の記録</div>
+    <div class="row field">
+      <div style="flex:0 0 120px">
+        <label for="save-no">台番号</label>
+        <input type="number" id="save-no" inputmode="numeric" placeholder="1108" min="0">
+      </div>
+      <div>
+        <label for="save-memo">メモ（任意）</label>
+        <input type="text" id="save-memo" placeholder="釘・ヘソなど" style="font-size:15px;text-align:left;font-family:inherit">
+      </div>
+    </div>
+    <div class="row field">
+      <div>
+        <label for="save-rot">総回転</label>
+        <input type="number" id="save-rot" inputmode="numeric" placeholder="0" min="0">
+      </div>
+      <div>
+        <label for="save-hits">当たり回数</label>
+        <input type="number" id="save-hits" inputmode="numeric" placeholder="0" min="0">
+      </div>
+      <div>
+        <label for="save-rate">回転率</label>
+        <input type="number" id="save-rate" inputmode="decimal" placeholder="0.00" min="0" step="0.01">
+      </div>
+    </div>
+    <div class="hint" style="margin:-6px 0 10px">上の計算結果が自動で入ります。手入力した台もそのまま保存できます</div>
+    <button class="btn btn-link" id="btn-fill-current" style="margin-bottom:10px">↻ 今の計算結果を入れる</button>
+    <button class="btn btn-add" id="btn-save-machine">💾 この台を保存</button>
+    <div id="save-msg" style="display:none;font-size:13px;color:var(--teal);text-align:center;margin-top:10px"></div>
+    <button type="button" id="saved-toggle" style="width:100%;background:none;border:none;border-top:1px solid var(--border);color:var(--text-sub);font-size:13px;padding:10px 0;margin-top:12px;cursor:pointer">保存した台 ↓（0件）</button>
+    <div id="saved-list" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ===== 期待値画面 ===== -->
+<div id="view-ev" style="display:none">
+
+  <!-- ボーダー設定（期待値画面） -->
+  <div class="card">
+    <div class="card-title">ボーダー設定</div>
+    <div class="field" id="pickup-wrap">
+      <label for="pickup">ハネ拾い率（%）</label>
+      <input type="number" id="pickup" inputmode="decimal" value="47" min="1" max="100" step="0.1">
+      <div class="hint" id="pickup-hint">実戦上の拾い率は約47%。ボーダーは拾い率で大きく変わります</div>
+    </div>
+    <div class="row field">
+      <div>
+        <label for="kk">交換率</label>
+        <select id="kk">
+          <option value="25">25玉（4.00円）</option>
+          <option value="28" selected>28玉（3.57円）</option>
+          <option value="30">30玉（3.33円）</option>
+          <option value="33">33玉（3.03円）</option>
+          <option value="40">40玉（2.50円）</option>
+        </select>
+      </div>
+      <div id="cond-wrap">
+        <label for="cond">条件</label>
+        <select id="cond"></select>
+      </div>
+    </div>
+    <div class="seg sub-seg" style="margin-bottom:0">
+      <button id="pay-hyoki" class="on">表記出玉</button>
+      <button id="pay-minus">出玉5%減</button>
+    </div>
+    <div class="border-box">
+      <div class="lbl">鳴きボーダー</div>
+      <div class="val" id="border-val">---</div>
+      <div class="unit">鳴き / 1k</div>
+    </div>
+  </div>
+
+
+  <div class="card">
+    <div class="card-title">大当たり確率</div>
+    <div class="row field">
+      <div>
+        <label for="ev-rot">総回転（鳴き）</label>
+        <input type="number" id="ev-rot" inputmode="numeric" placeholder="0" min="0">
+      </div>
+      <div>
+        <label for="ev-hits">大当たり回数</label>
+        <input type="number" id="ev-hits" inputmode="numeric" placeholder="0" min="0">
+      </div>
+    </div>
+    <div class="big teal" style="padding-top:4px">
+      <div class="lbl">実質大当たり確率</div>
+      <div class="val na" id="ev-prob">---</div>
+      <div class="unit" id="ev-prob-unit"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">期待値の条件</div>
+    <div class="field">
+      <label for="ev-rate">回転率（鳴き / 1k）</label>
+      <input type="number" id="ev-rate" inputmode="decimal" placeholder="10.5" min="0" step="0.01">
+      <button class="btn btn-link" id="btn-import" style="margin-top:8px">↑ 逆算した回転率を入れる</button>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="ev-speed">時速（鳴き/h）</label>
+        <input type="number" id="ev-speed" inputmode="numeric" placeholder="1000" min="0">
+      </div>
+      <div class="field">
+        <label for="ev-hours">稼働時間（h）</label>
+        <input type="number" id="ev-hours" inputmode="decimal" value="6" min="0" step="0.5">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="big">
+      <div class="lbl">時間あたり期待収支</div>
+      <div class="val na" id="ev-hour">---</div>
+      <div class="unit" id="ev-hour-unit"></div>
+    </div>
+    <div style="margin-top:14px">
+      <div class="kv"><span class="k">鳴きボーダー</span><span class="v teal" id="ev-border">---</span></div>
+      <div class="kv"><span class="k">ボーダーとの差</span><span class="v" id="ev-diff">---</span></div>
+      <div class="kv"><span class="k">1kあたり期待収支</span><span class="v" id="ev-per-k">---</span></div>
+      <div class="kv"><span class="k">1時間あたり投資</span><span class="v" id="ev-invest">---</span></div>
+      <div class="kv"><span class="k">1時間あたり大当たり</span><span class="v" id="ev-hits-h">---</span></div>
+      <div class="kv"><span class="k">稼働時間の合計期待値</span><span class="v" id="ev-total">---</span></div>
+    </div>
+    <div class="verdict" id="ev-verdict">拾い率・回転率・時速を入力してください</div>
+  </div>
+</div>
+
+  <button class="btn btn-ghost" id="btn-reset">すべてクリア</button>
+</div>
+
+<!-- 当たり記録モーダル -->
+<div class="modal-overlay" id="lv-hit-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">🎯 当たり記録</div>
+    <p style="font-size:13px;color:var(--text-sub);text-align:center;margin-bottom:14px">当たった時点の数値を入れてください</p>
+    <div class="field">
+      <label for="lv-hit-rot">当たり時の鳴き数</label>
+      <input type="number" id="lv-hit-rot" inputmode="numeric" placeholder="0" min="0">
+    </div>
+    <div class="row field">
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label for="lv-hit-cho" style="margin:0">貯玉</label>
+          <button type="button" class="cho-clear-btn" data-target="lv-hit-cho" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+        </div>
+        <input type="number" id="lv-hit-cho" inputmode="numeric" placeholder="0" min="0">
+      </div>
+      <div>
+        <label for="lv-hit-mochi">持ち玉</label>
+        <input type="number" id="lv-hit-mochi" inputmode="numeric" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-sub);text-align:center;margin-bottom:14px">
+      合計：<span id="lv-hit-total" style="color:var(--teal);font-weight:700">0</span>玉
+    </div>
+    <div id="lv-hit-err" class="err"></div>
+    <button class="btn btn-add" id="lv-hit-confirm" style="margin-bottom:10px">記録する</button>
+    <button class="btn btn-ghost" id="lv-hit-cancel">キャンセル</button>
+  </div>
+</div>
+
+<!-- 出玉確定モーダル -->
+<div class="modal-overlay" id="lv-payout-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">🔚 出玉確定</div>
+
+    <div style="background:var(--bg-input);border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">この区間の結果</div>
+      <div class="kv"><span class="k">区間の鳴き数</span><span class="v" id="lv-sec-rot">---</span></div>
+      <div class="kv"><span class="k">使用玉</span><span class="v" id="lv-sec-used">---</span></div>
+      <div class="kv"><span class="k">区間回転率</span><span class="v amber" id="lv-sec-rate">---</span></div>
+      <div class="kv"><span class="k">確定後の差玉</span><span class="v" id="lv-pay-diff">---</span></div>
+    </div>
+
+    <div style="font-size:15px;font-weight:600;margin-bottom:8px">出玉確定時の玉数</div>
+    <div class="row field">
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label for="lv-pay-cho" style="margin:0">貯玉</label>
+          <button type="button" class="cho-clear-btn" data-target="lv-pay-cho" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+        </div>
+        <input type="number" id="lv-pay-cho" inputmode="numeric" placeholder="0" min="0">
+      </div>
+      <div>
+        <label for="lv-pay-mochi">持ち玉</label>
+        <input type="number" id="lv-pay-mochi" inputmode="numeric" placeholder="0" min="0">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-sub);text-align:center;margin-bottom:8px">
+      合計：<span id="lv-pay-total" style="color:var(--teal);font-weight:700">0</span>玉
+    </div>
+
+    <button type="button" id="lv-gain-toggle"
+            style="width:100%;background:none;border:1px dashed var(--border);border-radius:10px;color:var(--text-sub);font-size:13px;padding:10px 0;margin-bottom:12px;cursor:pointer">
+      ＋ 獲得出玉から計算する ▼
+    </button>
+    <div id="lv-gain-fields" style="display:none;margin-bottom:12px">
+      <div class="field" style="margin-bottom:6px">
+        <label for="lv-gain">獲得出玉</label>
+        <input type="number" id="lv-gain" inputmode="numeric" placeholder="0" min="0">
+      </div>
+      <div style="font-size:13px;color:var(--text-sub);text-align:center">
+        当たり時の玉数 ＋ 獲得出玉 ＝ <span id="lv-gain-total" style="color:var(--teal);font-weight:700">---</span>
+      </div>
+    </div>
+
+    <label style="margin-bottom:6px">獲得R数（出玉から自動判定）</label>
+    <div class="seg sub-seg" id="lv-r-seg" style="margin-bottom:6px"></div>
+    <select id="lv-r" style="display:none"></select>
+    <div class="hint" id="lv-r-hint" style="margin:0 0 12px">出玉を入れるとR数を自動で判定します</div>
+
+    <div class="field">
+      <label for="lv-endrot">終了後の鳴き数（任意）</label>
+      <input type="number" id="lv-endrot" inputmode="numeric" placeholder="空欄なら当たり時のまま" min="0">
+    </div>
+
+    <div id="lv-pay-err" class="err"></div>
+    <button class="btn btn-add" id="lv-pay-confirm" style="margin-bottom:10px">確定</button>
+    <button class="btn btn-ghost" id="lv-pay-cancel" style="border-color:var(--red);color:var(--red)">↩ 当たり記録を取り消す</button>
+  </div>
+</div>
+
+<!-- セッション終了モーダル -->
+<div class="modal-overlay" id="lv-end-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">セッション結果</div>
+    <div class="kv"><span class="k">最終差玉</span><span class="v" id="lv-end-diff">---</span></div>
+    <div class="kv"><span class="k">累計の鳴き数</span><span class="v" id="lv-end-rot">---</span></div>
+    <div class="kv"><span class="k">累計使用玉</span><span class="v" id="lv-end-used">---</span></div>
+    <div class="kv"><span class="k">累計回転率</span><span class="v amber" id="lv-end-rate">---</span></div>
+    <div class="kv"><span class="k">鳴きボーダー</span><span class="v teal" id="lv-end-border">---</span></div>
+    <div class="kv"><span class="k">当たり回数</span><span class="v" id="lv-end-hits">---</span></div>
+    <div class="kv"><span class="k">大当たり確率</span><span class="v" id="lv-end-prob">---</span></div>
+    <div class="kv"><span class="k">平均R数</span><span class="v" id="lv-end-avgr">---</span></div>
+    <div class="kv"><span class="k">平均獲得出玉</span><span class="v" id="lv-end-avggain">---</span></div>
+    <div class="row field" style="margin-top:18px">
+      <div style="flex:0 0 120px">
+        <label for="lv-end-no">台番号</label>
+        <input type="number" id="lv-end-no" inputmode="numeric" placeholder="1108" min="0">
+      </div>
+      <div>
+        <label for="lv-end-memo">メモ（任意）</label>
+        <input type="text" id="lv-end-memo" placeholder="釘など" style="font-size:15px;text-align:left;font-family:inherit">
+      </div>
+    </div>
+    <div>
+      <button class="btn btn-add" id="lv-end-save" style="margin-bottom:10px">💾 台の記録に保存して終了</button>
+      <button class="btn btn-ghost" id="lv-end-reset" style="border-color:var(--red);color:var(--red);margin-bottom:10px">保存せずに終了（リセット）</button>
+      <button class="btn btn-ghost" id="lv-end-cancel">まだ終了しない</button>
+    </div>
+  </div>
+</div>
+
+<!-- 履歴削除確認 -->
+<div class="modal-overlay" id="lv-del-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">この当たりを削除しますか？</div>
+    <p style="font-size:14px;color:var(--text-sub);text-align:center;margin-bottom:20px" id="lv-del-desc"></p>
+    <button class="btn btn-ghost" id="lv-del-yes" style="border-color:var(--red);color:var(--red);margin-bottom:10px">削除する</button>
+    <button class="btn btn-ghost" id="lv-del-no">キャンセル</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var BALLS_PER_K = 250;
+  var BAR_COLORS = ['var(--amber)','var(--teal)','var(--sky)'];
+  // ===== 機種ごとの設定 =====
+  // borders はスペックのボーダー（拾い率100%基準）→ 拾い率で割ると鳴きボーダー
+  var MACHINES = {
+    odate: {
+      name:'おだてブタ2',
+      sub:'Pポチッと一発おだてブタ2 / 1k = 250玉',
+      perR:117,
+      rOptions:[2,4,9],
+      pickup:47,
+      pickupHint:'実戦上の拾い率は約47%。ボーダーは拾い率で大きく変わります',
+      perRHint:'実質9R=1053玉 / 4R=468玉 / 2R=234玉（1R約117玉）',
+      conds:{ v:'V賞球あり', none:'V賞球なし' },
+      borders:{
+        v:   {25:4.43, 28:4.96, 30:5.32, 33:5.85, 40:7.09},
+        none:{25:4.88, 28:5.47, 30:5.86, 33:6.44, 40:7.81}
+      }
+    },
+    famisuta: {
+      name:'ファミスタ',
+      sub:'Pハネモノ ファミリースタジアム / 1k = 250玉',
+      perR:112,
+      rOptions:[2,4,9],
+      pickup:48.4,
+      pickupHint:'実戦上の拾い率は約48.4%。ボーダーは拾い率で大きく変わります',
+      perRHint:'実戦上の1R出玉は約112玉',
+      conds:{ std:'スペック基準' },
+      borders:{
+        std:{25:5.25, 28:5.88, 30:6.29, 33:6.92, 40:8.39}
+      }
+    },
+    // ここからはボーダーに拾い率が織り込まれている機種（borderMode:'direct'）
+    haneshaka: {
+      name:'ハネ釈迦',
+      sub:'PHはねもの ハネ釈迦（シャカRUSH2）/ 1k = 250玉',
+      perR:123,
+      rOptions:[1,2,3,4,5,6,7,8,9],
+      borderMode:'direct',
+      fixedPanel:false,
+      pickup:100,
+      pickupHint:'この機種のボーダーは拾い率を含んだ数値です',
+      perRHint:'実質1R約123玉（平均582.8玉 / 実質4.74R）。当たりは実質1R〜9R',
+      conds:{ std:'スペック基準' },
+      borders:{
+        std:{25:11.04, 28:12.37, 30:13.25, 33:14.57, 40:17.66}
+      }
+    },
+    fineplay: {
+      name:'ファインプレー',
+      sub:'Pはねものファインプレー / 1k = 250玉',
+      perR:120,
+      rOptions:[2,4,9],
+      borderMode:'direct',
+      pickup:100,
+      pickupHint:'この機種のボーダーは拾球率45%を織り込んだ数値です',
+      perRHint:'実質1R約120玉（平均599.96玉 / 実質5.01R）',
+      conds:{ std:'スペック基準' },
+      borders:{
+        std:{25:11.47, 28:12.84, 30:13.76, 33:15.13, 40:18.34}
+      }
+    },
+    // ここからは拾球率100%基準（拾い率で割って鳴きボーダーにする）
+    tokio_green: {
+      name:'ニュートキオGREEN',
+      sub:'PニュートキオGREEN V1 / 1k = 250玉',
+      perR:117,
+      rOptions:[2,4,9],
+      pickup:47,
+      pickupHint:'拾球率100%基準のボーダーを拾い率で割ります。実測値を入れてください',
+      perRHint:'実質1R約117玉（平均585玉 / 実質5R）',
+      conds:{ std:'スペック基準' },
+      borders:{
+        std:{25:5.56, 28:6.22, 30:6.67, 33:7.34, 40:8.89}
+      }
+    },
+    tokio_h1: {
+      name:'ニュートキオH1',
+      sub:'PニュートキオH1 ヘソ / 1k = 250玉',
+      perR:117,
+      rOptions:[2,4,9],
+      pickup:47,
+      pickupHint:'拾球率100%基準のボーダーを拾い率で割ります。実測値を入れてください',
+      perRHint:'実質1R約117玉（平均585玉 / 実質5R）',
+      conds:{ std:'スペック基準' },
+      borders:{
+        std:{25:5.56, 28:6.22, 30:6.67, 33:7.33, 40:8.89}
+      }
+    }
+  };
+  var MACHINE_KEY = 'pachi_calc_machine';
+  var machineId = 'odate';
+  function M(){ return MACHINES[machineId]; }
+  function stdPerR(){ return M().perR; }
+  function perRMin(){ return Math.round(M().perR * 0.7); }
+  function perRMax(){ return Math.round(M().perR * 1.4); }
+  function KEYF(){ return 'pachi_calc_' + machineId; }
+  function $(id){ return document.getElementById(id); }
+  function iv(el){ var v = parseInt(el.value, 10); return isNaN(v) ? 0 : Math.abs(v); }
+  function fv(el){ var v = parseFloat(el.value); return isNaN(v) ? 0 : Math.abs(v); }
+  function fmt(n){ return n.toLocaleString(); }
+  function yen(n){ return (n >= 0 ? '+' : '−') + fmt(Math.round(Math.abs(n))) + '円'; }
+
+  var state = { tab:'live', mode:'hist', pay:'hyoki', sign:1, hist:[], lastDeleted:null, histOpen:true, savedOpen:false, savedDeleted:null, live:createLive() };
+
+  // ---------- 保存 / 復元 ----------
+  function save(){
+    try{
+      localStorage.setItem(KEYF(), JSON.stringify({
+        tab:state.tab, mode:state.mode, pay:state.pay, sign:state.sign, hist:state.hist, live:state.live,
+        liveDraft:liveDraftValues(),
+        histOpen:state.histOpen, savedOpen:state.savedOpen,
+        pickup:$('pickup').value, kk:$('kk').value, cond:$('cond').value,
+        totalRot:$('total-rot').value, diff:$('diff').value,
+        perR:$('per-r').value, c2:$('cnt2').value, c4:$('cnt4').value, c9:$('cnt9').value,
+        inR:$('in-r').value, inBalls:$('in-balls').value,
+        evRot:$('ev-rot').value, evHits:$('ev-hits').value, evRate:$('ev-rate').value,
+        evSpeed:$('ev-speed').value, evHours:$('ev-hours').value
+      }));
+    }catch(e){}
+  }
+  function load(){
+    try{
+      var raw = localStorage.getItem(KEYF());
+      if(!raw) return;
+      var s = JSON.parse(raw);
+      if(!s || typeof s !== 'object') return;
+      state.tab  = (s.tab === 'ev' || s.tab === 'calc' || s.tab === 'live') ? s.tab : 'live';
+      state.live = normalizeLive(s.live);
+      restoreLiveDraft(s.liveDraft);
+      state.mode = s.mode === 'fix' ? 'fix' : 'hist';
+      state.pay  = s.pay === 'minus' ? 'minus' : 'hyoki';
+      state.sign = s.sign === -1 ? -1 : 1;
+      state.histOpen = s.histOpen !== false;
+      state.savedOpen = s.savedOpen === true;
+      state.hist = Array.isArray(s.hist) ? s.hist.filter(function(h){
+        return h && M().rOptions.indexOf(Number(h.r)) !== -1 && isFinite(Number(h.balls));
+      }).map(function(h){ return { r:Number(h.r), balls:Math.abs(Number(h.balls)) }; }) : [];
+      var pk = parseFloat(s.pickup);
+      if(isFinite(pk) && pk > 0 && pk <= 100) $('pickup').value = s.pickup;
+      if(M().borders[Object.keys(M().borders)[0]][s.kk]) $('kk').value = s.kk;
+      if(M().borders[s.cond]) $('cond').value = s.cond;
+      $('total-rot').value = s.totalRot || '';
+      $('diff').value = s.diff || '';
+      if(s.perR !== undefined && s.perR !== '') $('per-r').value = s.perR;
+      $('cnt2').value = s.c2 || ''; $('cnt4').value = s.c4 || ''; $('cnt9').value = s.c9 || '';
+      if(M().rOptions.indexOf(Number(s.inR)) !== -1) $('in-r').value = String(s.inR);
+      $('in-balls').value = s.inBalls || '';
+      $('ev-rot').value = s.evRot || ''; $('ev-hits').value = s.evHits || '';
+      $('ev-rate').value = s.evRate || ''; $('ev-speed').value = s.evSpeed || '';
+      if(s.evHours !== undefined && s.evHours !== '') $('ev-hours').value = s.evHours;
+    }catch(e){}
+  }
+
+  // ---------- 機種の切り替え ----------
+  function renderMachineTabs(){
+    var sel = $('machine-select');
+    sel.innerHTML = '';
+    Object.keys(MACHINES).forEach(function(id){
+      var o = document.createElement('option');
+      o.value = id;
+      o.textContent = MACHINES[id].name;
+      if(id === machineId) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
+  // 機種に合わせて画面の中身を差し替える（入力は既定値に戻す）
+  function applyMachine(){
+    var m = M();
+    $('machine-title').textContent = m.name + ' 計算ツール';
+    $('machine-sub').textContent = m.sub;
+    $('pickup-hint').textContent = m.pickupHint;
+    $('per-r-hint').textContent = m.perRHint;
+
+    // 条件セレクト
+    var cond = $('cond'), keys = Object.keys(m.conds);
+    cond.innerHTML = '';
+    keys.forEach(function(k){
+      var o = document.createElement('option');
+      o.value = k; o.textContent = m.conds[k];
+      cond.appendChild(o);
+    });
+    $('cond-wrap').style.display = keys.length > 1 ? 'block' : 'none';
+
+    // R数セレクトと出玉固定の回数欄
+    var sel = $('in-r');
+    sel.innerHTML = '';
+    m.rOptions.forEach(function(r, i){
+      var o = document.createElement('option');
+      o.value = String(r); o.textContent = r + 'R';
+      if(i === m.rOptions.length - 1) o.selected = true;
+      sel.appendChild(o);
+    });
+    ['cnt2','cnt4','cnt9'].forEach(function(id, i){
+      var r = m.rOptions[i];
+      var lbl = $('lbl-' + id);
+      if(r === undefined){ $(id).parentNode.style.display = 'none'; }
+      else { $(id).parentNode.style.display = 'block'; lbl.textContent = r + 'R 回数'; }
+    });
+
+    // 拾い率はボーダーの方式によって出し分ける
+    $('pickup-wrap').style.display = (m.borderMode === 'direct') ? 'none' : 'block';
+    // 出玉固定モードはR数が2・4・9の機種だけ
+    var canFix = m.fixedPanel !== false && m.rOptions.length === 3;
+    $('mode-seg').style.display = canFix ? 'flex' : 'none';
+    if(!canFix) state.mode = 'hist';
+
+    // 既定値
+    $('pickup').value = m.pickup;
+    $('per-r').value = m.perR;
+    renderRSeg();
+  }
+
+  function resetInputs(){
+    state.live = createLive();   // 切り替え先の保存データで上書きされる
+    ['lv-start-rot','lv-start-cho','lv-start-mochi'].forEach(function(id){ $(id).value = ''; });
+    $('lv-start-total').textContent = '0';
+    ['total-rot','diff','cnt2','cnt4','cnt9','in-balls',
+     'ev-rot','ev-hits','ev-rate','ev-speed'].forEach(function(id){ $(id).value = ''; });
+    $('ev-hours').value = '6';
+    state.hist = []; state.lastDeleted = null; state.sign = 1;
+    state.mode = 'hist'; state.pay = 'hyoki'; state.histOpen = true;
+    state.savedDeleted = null;
+    ['save-no','save-memo','save-rot','save-hits','save-rate'].forEach(function(id){ $(id).value = ''; });
+    $('btn-undo').style.display = 'none';
+  }
+
+  function switchMachine(id){
+    if(id === machineId || !MACHINES[id]) return;
+    save();                       // 今の機種のデータを保存
+    machineId = id;
+    try{ localStorage.setItem(MACHINE_KEY, id); }catch(e){}
+    resetInputs();
+    applyMachine();
+    load();                       // 切り替え先の保存データを復元
+    renderMachineTabs();
+    renderTab(); renderMode(); renderPay(); renderSign(); renderHist(); calcAll(); renderSaved(); renderLive();
+  }
+
+  // ---------- 台の記録 ----------
+  function savedKey(){ return 'pachi_calc_saved_' + machineId; }
+
+  function loadSaved(){
+    try{
+      var raw = localStorage.getItem(savedKey());
+      if(!raw) return [];
+      var a = JSON.parse(raw);
+      return Array.isArray(a) ? a : [];
+    }catch(e){ return []; }
+  }
+  function storeSaved(list){
+    try{ localStorage.setItem(savedKey(), JSON.stringify(list)); }catch(e){}
+  }
+
+  // 計算結果を保存フォームに流し込む
+  function fillSaveForm(){
+    var t = totals();
+    var totalRot = iv($('total-rot'));
+    if(totalRot > 0) $('save-rot').value = totalRot;
+    if(t.count > 0)  $('save-hits').value = t.count;
+    if(lastRate !== null) $('save-rate').value = lastRate.toFixed(2);
+  }
+
+  function renderSaved(){
+    var list = loadSaved();
+    var box = $('saved-list');
+    var open = state.savedOpen === true;
+    box.style.display = open ? 'block' : 'none';
+    $('saved-toggle').textContent = (open ? '保存した台 ↑（' : '保存した台 ↓（') + list.length + '件）';
+    box.innerHTML = '';
+    if(list.length === 0){
+      box.innerHTML = '<div class="empty">保存した台はありません</div>';
+      appendSavedUndo(box);
+      return;
+    }
+    list.forEach(function(s, i){
+      var row = document.createElement('div');
+      row.className = 'saved-item';
+
+      var main = document.createElement('div');
+      main.className = 'saved-main';
+
+      var head = document.createElement('div');
+      head.className = 'saved-head';
+      var no = document.createElement('span');
+      no.className = 'saved-no';
+      no.textContent = s.no ? s.no + '番' : '台番号なし';
+      var rate = document.createElement('span');
+      rate.className = 'saved-rate';
+      if(s.rate){
+        rate.textContent = s.rate.toFixed(2);
+        rate.style.color = (s.border && s.rate >= s.border) ? 'var(--green)' : 'var(--red)';
+      }else{
+        rate.textContent = '---';
+        rate.style.color = 'var(--text-muted)';
+      }
+      var unit = document.createElement('span');
+      unit.className = 'saved-date';
+      unit.textContent = '鳴き/k';
+      var date = document.createElement('span');
+      date.className = 'saved-date';
+      date.textContent = s.date ? '　' + s.date : '';
+      head.appendChild(no); head.appendChild(rate); head.appendChild(unit); head.appendChild(date);
+
+      var sub = document.createElement('div');
+      sub.className = 'saved-sub';
+      var parts = [];
+      if(s.rot)  parts.push(fmt(s.rot) + '回転');
+      if(s.hits) parts.push(s.hits + '当たり');
+      if(s.rot && s.hits) parts.push('1/' + (s.rot / s.hits).toFixed(1));
+      if(s.diff !== undefined && s.diff !== null) parts.push('差玉' + (s.diff >= 0 ? '+' : '') + fmt(s.diff));
+      if(s.border) parts.push('ボーダー' + s.border.toFixed(2));
+      sub.textContent = parts.join(' / ');
+
+      main.appendChild(head);
+      if(parts.length) main.appendChild(sub);
+      if(s.memo){
+        var memo = document.createElement('div');
+        memo.className = 'saved-memo';
+        memo.textContent = s.memo;
+        main.appendChild(memo);
+      }
+
+      var del = document.createElement('button');
+      del.className = 'del';
+      del.textContent = '✕';
+      del.addEventListener('click', function(){
+        var cur = loadSaved();
+        state.savedDeleted = { item: cur[i], index: i };
+        cur.splice(i, 1);
+        storeSaved(cur);
+        renderSaved();
+      });
+
+      row.appendChild(main); row.appendChild(del);
+      box.appendChild(row);
+    });
+
+    appendSavedUndo(box);
+  }
+
+  function appendSavedUndo(box){
+    if(state.savedDeleted){
+      var undo = document.createElement('button');
+      undo.className = 'btn btn-undo';
+      undo.textContent = '↩ 削除した台を元に戻す';
+      undo.addEventListener('click', function(){
+        var cur = loadSaved();
+        cur.splice(Math.min(state.savedDeleted.index, cur.length), 0, state.savedDeleted.item);
+        state.savedDeleted = null;
+        storeSaved(cur);
+        renderSaved();
+      });
+      box.appendChild(undo);
+    }
+  }
+
+  function saveMachineRecord(){
+    var no    = $('save-no').value.trim();
+    var memo  = $('save-memo').value.trim();
+    var rot   = iv($('save-rot'));
+    var hits  = iv($('save-hits'));
+    var rate  = fv($('save-rate'));
+    if(!no && !rot && !hits && !rate){
+      showSaveMsg('台番号か数値を入力してください', true);
+      return;
+    }
+    var d = new Date();
+    var rec = {
+      no: no,
+      memo: memo,
+      rot: rot || null,
+      hits: hits || null,
+      rate: rate || null,
+      border: nakiBorder(),
+      date: (d.getMonth()+1) + '/' + d.getDate()
+    };
+    var list = loadSaved();
+    list.unshift(rec);           // 新しい台を上に
+    storeSaved(list);
+    state.savedOpen = true;
+    ['save-no','save-memo','save-rot','save-hits','save-rate'].forEach(function(id){ $(id).value = ''; });
+    renderSaved();
+    showSaveMsg('保存しました', false);
+    save();
+  }
+
+  var saveMsgTimer = null;
+  function showSaveMsg(text, isErr){
+    var el = $('save-msg');
+    el.textContent = text;
+    el.style.color = isErr ? 'var(--red)' : 'var(--teal)';
+    el.style.display = 'block';
+    if(saveMsgTimer) clearTimeout(saveMsgTimer);
+    saveMsgTimer = setTimeout(function(){ el.style.display = 'none'; }, 2500);
+  }
+
+  // ---------- 表示切替 ----------
+  function renderTab(){
+    var t = state.tab;
+    $('tab-live').classList.toggle('on', t === 'live');
+    $('tab-calc').classList.toggle('on', t === 'calc');
+    $('tab-ev').classList.toggle('on', t === 'ev');
+    $('view-live').style.display = t === 'live' ? 'block' : 'none';
+    $('view-calc').style.display = t === 'calc' ? 'block' : 'none';
+    $('view-ev').style.display   = t === 'ev'   ? 'block' : 'none';
+  }
+  function renderMode(){
+    var h = state.mode === 'hist';
+    $('mode-hist').classList.toggle('on', h);
+    $('mode-fix').classList.toggle('on', !h);
+    $('panel-hist').style.display = h ? 'block' : 'none';
+    $('panel-fix').style.display = h ? 'none' : 'block';
+  }
+  function renderPay(){
+    var h = state.pay === 'hyoki';
+    $('pay-hyoki').classList.toggle('on', h);
+    $('pay-minus').classList.toggle('on', !h);
+  }
+  function renderSign(){
+    var b = $('diff-sign');
+    b.textContent = state.sign === 1 ? '＋' : '−';
+    b.classList.toggle('minus', state.sign === -1);
+  }
+  $('machine-select').addEventListener('change', function(){ switchMachine(this.value); });
+  $('btn-save-machine').addEventListener('click', saveMachineRecord);
+  $('btn-fill-current').addEventListener('click', function(){ fillSaveForm(); });
+  $('saved-toggle').addEventListener('click', function(){
+    state.savedOpen = !state.savedOpen;
+    renderSaved(); save();
+  });
+  $('tab-live').addEventListener('click', function(){ state.tab='live'; renderTab(); renderLive(); save(); });
+  $('tab-calc').addEventListener('click', function(){ state.tab='calc'; renderTab(); save(); });
+  $('tab-ev').addEventListener('click', function(){ state.tab='ev'; renderTab(); save(); });
+  $('mode-hist').addEventListener('click', function(){ state.mode='hist'; renderMode(); calcAll(); save(); });
+  $('mode-fix').addEventListener('click', function(){ state.mode='fix'; renderMode(); calcAll(); save(); });
+  $('pay-hyoki').addEventListener('click', function(){ state.pay='hyoki'; renderPay(); calcAll(); save(); });
+  $('pay-minus').addEventListener('click', function(){ state.pay='minus'; renderPay(); calcAll(); save(); });
+  $('diff-sign').addEventListener('click', function(){
+    state.sign = state.sign === 1 ? -1 : 1; renderSign(); calcAll(); save();
+  });
+
+  // ---------- 鳴きボーダー ----------
+  function nakiBorder(){
+    var base = M().borders[$('cond').value][$('kk').value];
+    var b;
+    if(M().borderMode === 'direct'){
+      b = base;                             // すでに拾い率込みの数値
+    }else{
+      var p = fv($('pickup')) / 100;
+      if(p <= 0 || p > 1) return null;
+      b = base / p;                         // 拾い基準 → 鳴き基準
+    }
+    if(state.pay === 'minus') b = b / 0.95; // 出玉5%減
+    return b;
+  }
+
+  // ---------- 履歴 ----------
+  function renderHist(){
+    var box = $('hist');
+    box.innerHTML = '';
+    if(state.hist.length === 0){
+      box.innerHTML = '<div class="empty">履歴なし</div>';
+      renderHistOpen();
+      renderHitCount();
+      return;
+    }
+    state.hist.forEach(function(h, i){
+      var row = document.createElement('div');
+      row.className = 'hist-item';
+      row.style.order = String(state.hist.length - i);
+      var per = h.r > 0 ? Math.round(h.balls / h.r) : 0;
+      var rs = document.createElement('span'); rs.className='hist-r'; rs.textContent = h.r + 'R';
+      var bs = document.createElement('span'); bs.className='hist-balls'; bs.textContent = fmt(h.balls) + '玉 ';
+      var ps = document.createElement('span'); ps.className='hist-per';
+      if(per < perRMin() || per > perRMax()){
+        ps.textContent = '(1R ' + per + '玉 ⚠)';
+        ps.style.color = 'var(--red)';
+      }else{
+        ps.textContent = '(1R ' + per + '玉)';
+      }
+      bs.appendChild(ps);
+      var del = document.createElement('button'); del.className='del'; del.textContent='✕';
+      del.addEventListener('click', function(){
+        state.lastDeleted = { item:state.hist[i], index:i };
+        state.hist.splice(i,1);
+        $('btn-undo').style.display = 'block';
+        renderHist(); calcAll(); save();
+      });
+      row.appendChild(rs); row.appendChild(bs); row.appendChild(del);
+      box.appendChild(row);
+    });
+    renderHistOpen();
+    renderHitCount();
+  }
+  // 出玉から最も近いR数を推定（2R=234 / 4R=468 / 9R=1053 玉が基準）
+  function guessR(balls){
+    var best = null, diff = Infinity;
+    M().rOptions.forEach(function(r){
+      var std = r * stdPerR();
+      var d = Math.abs(balls / std - 1);   // 比率で近さを見る
+      if(d < diff){ diff = d; best = r; }
+    });
+    return best;
+  }
+
+  var addWarned = false;
+  var rManual = false;   // ユーザーが自分でR数を選んだか
+  function clearAddWarn(){
+    addWarned = false;
+    $('add-warn').style.display = 'none';
+    $('btn-add').textContent = '＋ 追加';
+  }
+  $('btn-add').addEventListener('click', function(){
+    var r = parseInt($('in-r').value, 10);
+    var balls = iv($('in-balls'));
+    if(!r || balls <= 0){ $('in-balls').focus(); return; }
+
+    // R数に見合わない出玉なら一度警告する
+    var perR = balls / r;
+    if(!addWarned && (perR < perRMin() || perR > perRMax())){
+      addWarned = true;
+      $('add-warn').textContent =
+        '⚠ ' + r + 'Rで' + fmt(balls) + '玉は1Rあたり' + Math.round(perR) +
+        '玉です（標準' + stdPerR() + '玉／目安' + Math.round(r*stdPerR()) +
+        '玉）。入力ミスでなければもう一度押してください';
+      $('add-warn').style.display = 'block';
+      $('btn-add').textContent = '⚠ このまま追加する';
+      return;
+    }
+
+    state.hist.push({ r:r, balls:balls });
+    $('in-balls').value = '';
+    rManual = false;
+    clearAddWarn();
+    renderRSegActive();
+    renderAutoRHint();
+    renderHist(); calcAll(); save();
+  });
+  function renderHistOpen(){
+    var open = state.histOpen !== false;
+    $('hist').style.display = open ? 'flex' : 'none';
+    $('hist-toggle').textContent = open ? '履歴を隠す ↑' : '履歴を表示 ↓（' + state.hist.length + '件）';
+  }
+  $('hist-toggle').addEventListener('click', function(){
+    state.histOpen = state.histOpen === false;
+    renderHistOpen(); save();
+  });
+
+  $('btn-undo').addEventListener('click', function(){
+    if(!state.lastDeleted) return;
+    var idx = Math.min(state.lastDeleted.index, state.hist.length);
+    state.hist.splice(idx, 0, state.lastDeleted.item);
+    state.lastDeleted = null;
+    $('btn-undo').style.display = 'none';
+    renderHist(); calcAll(); save();
+  });
+
+  function totals(){
+    if(state.mode === 'hist'){
+      var t = { gain:0, count:state.hist.length, rSum:0, d:{} };
+      M().rOptions.forEach(function(r){ t.d[r] = 0; });
+      state.hist.forEach(function(h){
+        t.gain += h.balls; t.rSum += h.r;
+        if(t.d[h.r] !== undefined) t.d[h.r]++;
+      });
+      return t;
+    }
+    var per = iv($('per-r'));
+    var c2 = iv($('cnt2')), c4 = iv($('cnt4')), c9 = iv($('cnt9'));
+    var rSum = c2*2 + c4*4 + c9*9;
+    return { gain: rSum*per, count: c2+c4+c9, rSum: rSum, d:{2:c2,4:c4,9:c9} };
+  }
+
+  function renderDist(t){
+    var box = $('dist');
+    box.innerHTML = '';
+    if(t.count === 0){ box.innerHTML = '<div class="empty">データなし</div>'; return; }
+    M().rOptions.forEach(function(r, idx){
+      var n = t.d[r] || 0;
+      var pct = t.count > 0 ? (n / t.count * 100) : 0;
+      var row = document.createElement('div'); row.className='bar-row';
+      var head = document.createElement('div'); head.className='bar-head';
+      head.innerHTML = '<span>' + r + 'R</span><span class="n">' + n + '回 / ' + pct.toFixed(1) + '%</span>';
+      var bar = document.createElement('div'); bar.className='bar';
+      var fill = document.createElement('i');
+      fill.style.width = pct.toFixed(1) + '%';
+      fill.style.background = BAR_COLORS[idx % BAR_COLORS.length];
+      bar.appendChild(fill);
+      row.appendChild(head); row.appendChild(bar);
+      box.appendChild(row);
+    });
+  }
+
+  var lastRate = null; // 逆算した回転率（期待値画面へ取り込む用）
+
+  // ---------- 逆算 ----------
+  function calcReverse(){
+    var t = totals();
+    var totalRot = iv($('total-rot'));
+    var diff = iv($('diff')) * state.sign;
+    var used = t.gain - diff;                    // 通常時の使用玉
+    var ok = used > 0 && totalRot > 0 && t.gain > 0;
+    var rate = ok ? totalRot / (used / BALLS_PER_K) : null;
+    if(rate !== null && !isFinite(rate)) rate = null;
+    lastRate = rate;
+
+    var rateEl = $('rate');
+    if(rate !== null){
+      rateEl.textContent = rate.toFixed(2); rateEl.className = 'val';
+      $('rate-unit').textContent = '鳴き / 1k';
+    }else{
+      rateEl.textContent = '---'; rateEl.className = 'val na';
+      $('rate-unit').textContent = '';
+    }
+
+    $('r-gain').textContent  = t.gain > 0 ? fmt(t.gain) + '玉' : '---';
+    $('r-used').textContent  = used > 0 ? fmt(used) + '玉（' + (used/BALLS_PER_K).toFixed(1) + 'k）' : '---';
+    $('r-count').textContent = t.count > 0 ? t.count + '回' : '---';
+    $('r-prob').textContent = (totalRot > 0 && t.count > 0)
+      ? '1/' + (totalRot / t.count).toFixed(1) : '---';
+    $('r-total-r').textContent = t.rSum > 0 ? t.rSum + 'R' : '---';
+    $('r-avg-r').textContent = t.count > 0 ? (t.rSum/t.count).toFixed(2) + 'R' : '---';
+    $('r-per-r').textContent = t.rSum > 0 ? (t.gain/t.rSum).toFixed(1) + '玉' : '---';
+    $('r-avg-gain').textContent = t.count > 0 ? fmt(Math.round(t.gain/t.count)) + '玉' : '---';
+    renderDist(t);
+
+    var note = $('calc-note');
+    if(rate !== null){
+      note.textContent = '期待値画面でボーダーと比較できます';
+    }else{
+      note.textContent = (t.gain > 0 && used <= 0)
+        ? '差玉が総獲得出玉以上のため計算できません'
+        : '総回転数と差玉、出玉を入力してください';
+    }
+  }
+
+  // ---------- 期待値 ----------
+  function calcEV(){
+    var border = nakiBorder();
+    $('border-val').textContent = border !== null ? border.toFixed(2) : '---';
+    $('ev-border').textContent  = border !== null ? border.toFixed(2) + '鳴き/k' : '---';
+
+    // 実質大当たり確率
+    var rot = iv($('ev-rot')), hits = iv($('ev-hits'));
+    var pEl = $('ev-prob');
+    if(rot > 0 && hits > 0){
+      pEl.textContent = '1/' + (rot/hits).toFixed(1);
+      pEl.className = 'val';
+      $('ev-prob-unit').textContent = rot.toLocaleString() + '鳴き / ' + hits + '回';
+    }else{
+      pEl.textContent = '---'; pEl.className = 'val na';
+      $('ev-prob-unit').textContent = '';
+    }
+
+    var rate = fv($('ev-rate')), speed = iv($('ev-speed')), hours = fv($('ev-hours'));
+    var hEl = $('ev-hour'), vEl = $('ev-verdict');
+    var ok = border !== null && rate > 0 && speed > 0;
+
+    if(ok){
+      var investH = speed / rate * 1000;            // 1時間の投資額（円）
+      var perK    = 1000 * (rate / border - 1);     // 1kあたり期待収支（円）
+      var evH     = investH * (rate - border) / border;
+      $('ev-per-k').textContent  = yen(perK);
+      $('ev-per-k').className    = 'v ' + (perK >= 0 ? 'green' : 'red');
+      $('ev-invest').textContent = fmt(Math.round(investH)) + '円';
+      $('ev-diff').textContent   = ((rate - border) >= 0 ? '+' : '') + (rate - border).toFixed(2) + '鳴き/k';
+      $('ev-diff').className     = 'v ' + ((rate - border) >= 0 ? 'green' : 'red');
+      hEl.textContent = yen(evH);
+      hEl.className   = 'val ' + (evH >= 0 ? 'green' : 'red');
+      $('ev-hour-unit').textContent = '円 / 1時間';
+      $('ev-total').textContent = hours > 0 ? yen(evH * hours) : '---';
+      $('ev-total').className   = 'v ' + (evH * hours >= 0 ? 'green' : 'red');
+      vEl.textContent = evH >= 0 ? 'ボーダー超え（プラス期待値）' : 'ボーダー未満（マイナス期待値）';
+      vEl.className   = 'verdict ' + (evH >= 0 ? 'green' : 'red');
+    }else{
+      hEl.textContent = '---'; hEl.className = 'val na';
+      $('ev-hour-unit').textContent = '';
+      ['ev-per-k','ev-invest','ev-diff','ev-total'].forEach(function(id){
+        $(id).textContent = '---'; $(id).className = 'v';
+      });
+      vEl.textContent = '拾い率・回転率・時速を入力してください';
+      vEl.className = 'verdict';
+    }
+
+    // 1時間あたりの大当たり回数（実測確率 or 鳴き数から）
+    var probDen = (rot > 0 && hits > 0) ? (rot / hits) : null;
+    $('ev-hits-h').textContent = (probDen && speed > 0)
+      ? (speed / probDen).toFixed(2) + '回' : '---';
+  }
+
+  // ===================== 実戦記録 =====================
+  function createLive(){
+    return {
+      started:false, startRot:0, startBalls:0, startCho:0,
+      prevRot:0, prevBalls:0, curRot:0, curBalls:0,
+      totalRot:0, totalUsed:0, history:[],
+      isHit:false, hitRot:0, hitBalls:0, hitCho:0, hitMochi:0,
+      hitPrevRot:0, hitPrevBalls:0,
+      lastCho:0, histOpen:true, sessionStart:null
+    };
+  }
+
+  // 保存データを安全な形に整える
+  function normalizeLive(s){
+    var L = createLive();
+    if(!s || typeof s !== 'object') return L;
+    ['started','isHit'].forEach(function(k){ L[k] = s[k] === true; });
+    ['startRot','startBalls','startCho','prevRot','prevBalls','curRot','curBalls',
+     'totalRot','totalUsed','hitRot','hitBalls','hitCho','hitMochi',
+     'hitPrevRot','hitPrevBalls','lastCho'].forEach(function(k){
+      var v = Number(s[k]); L[k] = isFinite(v) ? v : 0;
+    });
+    L.histOpen = s.histOpen !== false;
+    L.sessionStart = isFinite(Number(s.sessionStart)) ? Number(s.sessionStart) : null;
+    L.history = Array.isArray(s.history) ? s.history.filter(function(h){
+      return h && isFinite(Number(h.hitRot)) && isFinite(Number(h.hitBalls)) && isFinite(Number(h.payoutBalls));
+    }) : [];
+    return L;
+  }
+
+  // 履歴から累計を作り直す（当たり中の区間も含める）
+  function recalcLive(){
+    var L = state.live;
+    var prevRot = L.startRot, prevBalls = L.startBalls, tr = 0, tu = 0;
+    L.history.forEach(function(h){
+      h.snapPrevRot = prevRot;
+      h.snapPrevBalls = prevBalls;
+      h.secRot = h.hitRot - prevRot;
+      h.secUsedBalls = prevBalls - h.hitBalls;
+      h.usedK = h.secUsedBalls > 0 ? (h.secUsedBalls / BALLS_PER_K).toFixed(1) : null;
+      h.secRate = (h.secRot > 0 && h.secUsedBalls > 0)
+        ? Math.round(h.secRot / (h.secUsedBalls / BALLS_PER_K) * 10) / 10 : null;
+      h.gained = h.payoutBalls - h.hitBalls;
+      h.per1r = (h.r > 0) ? h.gained / h.r : null;
+      if(h.secRot > 0) tr += h.secRot;
+      if(h.secUsedBalls > 0) tu += h.secUsedBalls;
+      prevRot = (h.endRot !== undefined && h.endRot !== null) ? h.endRot : h.hitRot;
+      prevBalls = h.payoutBalls;
+    });
+    if(L.isHit){
+      L.hitPrevRot = prevRot;
+      L.hitPrevBalls = prevBalls;
+      var sr = L.hitRot - prevRot, su = prevBalls - L.hitBalls;
+      if(sr > 0) tr += sr;
+      if(su > 0) tu += su;
+      L.curRot = L.hitRot; L.curBalls = L.hitBalls;
+    }else{
+      L.prevRot = prevRot; L.prevBalls = prevBalls;
+      L.curRot = prevRot;  L.curBalls = prevBalls;
+    }
+    L.totalRot = tr; L.totalUsed = tu;
+  }
+
+  function liveRate(){
+    var L = state.live;
+    return (L.totalUsed > 0 && L.totalRot > 0) ? L.totalRot / (L.totalUsed / BALLS_PER_K) : null;
+  }
+  function liveDiff(balls){
+    var L = state.live;
+    var cur = (balls === undefined) ? L.curBalls : balls;
+    return cur - L.startBalls;
+  }
+  function setSigned(el, v, unit){
+    if(!el) return;
+    el.textContent = (v >= 0 ? '+' : '') + fmt(v) + (unit || '');
+    el.style.color = v >= 0 ? 'var(--green)' : 'var(--red)';
+  }
+
+  // ---------- 描画 ----------
+  function renderLive(){
+    var L = state.live;
+    $('live-start').style.display = L.started ? 'none' : 'block';
+    $('live-session').style.display = L.started ? 'block' : 'none';
+    if(!L.started) return;
+
+    var rate = liveRate();
+    var rEl = $('lv-rate');
+    if(rate !== null){
+      rEl.textContent = rate.toFixed(2); rEl.className = 'val';
+      $('lv-rate-unit').textContent = '鳴き / 1k';
+    }else{
+      rEl.textContent = '---'; rEl.className = 'val na';
+      $('lv-rate-unit').textContent = '';
+    }
+
+    var border = nakiBorder();
+    $('lv-border').textContent = border !== null ? border.toFixed(2) : '---';
+    var bd = $('lv-bdiff');
+    if(rate !== null && border !== null){
+      var d = rate - border;
+      bd.textContent = (d >= 0 ? '+' : '') + d.toFixed(2);
+      bd.className = 'v ' + (d >= 0 ? 'green' : 'red');
+    }else{
+      bd.textContent = '---'; bd.className = 'v';
+    }
+
+    $('lv-total-rot').textContent = fmt(L.totalRot);
+    $('lv-balls').textContent = fmt(L.curBalls);
+    $('lv-cur-rot').textContent = fmt(L.curRot);
+    setSigned($('lv-diff'), liveDiff());
+    $('lv-hits').textContent = L.history.length;
+    $('lv-prob').textContent = (L.totalRot > 0 && L.history.length > 0)
+      ? '1/' + (L.totalRot / L.history.length).toFixed(1) : '---';
+
+    var ban = $('lv-banner');
+    if(L.isHit){
+      ban.classList.add('on');
+      ban.textContent = '🎰 当たり中！ ' + fmt(L.hitRot) + '鳴き / ' + fmt(L.hitBalls) + '玉';
+    }else{
+      ban.classList.remove('on');
+    }
+    $('lv-hit-btn').disabled = L.isHit;
+    renderLiveHist();
+  }
+
+  function renderLiveHist(){
+    var L = state.live;
+    var box = $('lv-hist');
+    var open = L.histOpen !== false;
+    box.style.display = open ? 'block' : 'none';
+    $('lv-hist-toggle').textContent = open
+      ? '履歴を隠す ↑' : '履歴を表示 ↓（' + L.history.length + '件）';
+    box.innerHTML = '';
+    if(L.history.length === 0){
+      box.innerHTML = '<div class="empty">まだ当たりはありません</div>';
+      return;
+    }
+    box.style.flexDirection = 'column';
+    box.style.display = open ? 'flex' : 'none';
+    L.history.forEach(function(h, i){
+      var row = document.createElement('div');
+      row.className = 'hist-item';
+      row.style.order = String(L.history.length - i);
+
+      var main = document.createElement('div');
+      main.style.cssText = 'flex:1;min-width:0';
+      var head = document.createElement('div');
+      head.innerHTML =
+        '<span class="hist-r">' + (h.r || '?') + 'R</span> ' +
+        '<span style="font-family:var(--mono);font-size:16px;font-weight:700">+' + fmt(h.gained) + '玉</span>' +
+        (h.per1r ? ' <span class="hist-per">(1R ' + Math.round(h.per1r) + '玉)</span>' : '');
+      var sub = document.createElement('div');
+      sub.className = 'saved-sub';
+      var parts = [];
+      parts.push(h.hitRot + '鳴きで当たり');
+      if(h.secRot > 0) parts.push('区間' + h.secRot + '鳴き');
+      if(h.usedK) parts.push(h.usedK + 'k使用');
+      if(h.secRate !== null && h.secRate !== undefined) parts.push('回転率' + h.secRate);
+      sub.textContent = parts.join(' / ');
+      var sub2 = document.createElement('div');
+      sub2.className = 'saved-memo';
+      sub2.textContent = '当たり時 貯玉' + fmt(h.hitCho || 0) + ' / 持ち玉' + fmt(h.hitMochi || 0)
+        + '　→　確定時 貯玉' + fmt(h.payoutCho || 0) + ' / 持ち玉' + fmt(h.payoutMochi || 0);
+
+      main.appendChild(head); main.appendChild(sub); main.appendChild(sub2);
+
+      var del = document.createElement('button');
+      del.className = 'del';
+      del.textContent = '✕';
+      del.addEventListener('click', function(){ openLiveDel(i); });
+
+      row.appendChild(main); row.appendChild(del);
+      box.appendChild(row);
+    });
+  }
+
+  // ---------- セッション開始 ----------
+  function liveStart(){
+    var rotVal = $('lv-start-rot').value.trim();
+    var cho = iv($('lv-start-cho')), mochi = iv($('lv-start-mochi'));
+    if(rotVal === ''){ showErr('lv-start-err', '開始時の鳴き数を入れてください'); return; }
+    var rot = parseInt(rotVal, 10);
+    if(isNaN(rot) || rot < 0){ showErr('lv-start-err', '正しい数値を入れてください'); return; }
+    hideErr('lv-start-err');
+    var L = createLive();
+    L.started = true;
+    L.startRot = rot; L.startCho = cho;
+    L.startBalls = cho + mochi;
+    L.prevRot = rot; L.prevBalls = L.startBalls;
+    L.curRot = rot;  L.curBalls = L.startBalls;
+    L.lastCho = cho;
+    L.sessionStart = Date.now();
+    state.live = L;
+    save(); renderLive();
+  }
+
+  // ---------- 当たり記録 ----------
+  function openLiveHit(){
+    var L = state.live;
+    if(L.isHit){ openLivePayout(); return; }
+    $('lv-hit-rot').value = '';
+    $('lv-hit-cho').value = '';
+    $('lv-hit-mochi').value = '';
+    $('lv-hit-total').textContent = '0';
+    hideErr('lv-hit-err');
+    $('lv-hit-modal').classList.add('open');
+  }
+  function closeLiveHit(){ $('lv-hit-modal').classList.remove('open'); }
+
+  function liveHitConfirm(){
+    var L = state.live;
+    var rotVal = $('lv-hit-rot').value.trim();
+    var choVal = $('lv-hit-cho').value.trim();
+    var mochiVal = $('lv-hit-mochi').value.trim();
+    if(rotVal === ''){ showErr('lv-hit-err', '鳴き数を入れてください'); return; }
+    if(choVal === '' && mochiVal === ''){ showErr('lv-hit-err', '玉数を入れてください'); return; }
+    var rot = parseInt(rotVal, 10);
+    var cho = choVal === '' ? 0 : parseInt(choVal, 10);
+    var mochi = mochiVal === '' ? 0 : parseInt(mochiVal, 10);
+    if(isNaN(rot) || isNaN(cho) || isNaN(mochi) || rot < 0 || cho < 0 || mochi < 0){
+      showErr('lv-hit-err', '正しい数値を入れてください'); return;
+    }
+    if(rot < L.prevRot){
+      showErr('lv-hit-err', '鳴き数は前回(' + L.prevRot + ')以上で入れてください'); return;
+    }
+    hideErr('lv-hit-err');
+    L.hitRot = rot;
+    L.hitCho = cho;
+    L.hitMochi = mochi;
+    L.hitBalls = cho + mochi;
+    L.lastCho = cho;
+    L.isHit = true;
+    recalcLive();
+    closeLiveHit();
+    save(); renderLive();
+    openLivePayout();
+  }
+
+  // ---------- 出玉確定 ----------
+  function openLivePayout(keep){
+    var L = state.live;
+    if(!keep){
+      $('lv-pay-cho').value = '';
+      $('lv-pay-mochi').value = '';
+      $('lv-pay-total').textContent = '0';
+      $('lv-gain').value = '';
+      $('lv-gain-fields').style.display = 'none';
+      $('lv-gain-toggle').textContent = '＋ 獲得出玉から計算する ▼';
+      $('lv-endrot').value = '';
+    }else if($('lv-gain').value.trim() !== ''){
+      $('lv-gain-fields').style.display = 'block';
+      $('lv-gain-toggle').textContent = '獲得出玉を使わない ▲';
+      renderLiveGainTotal();
+    }
+    hideErr('lv-pay-err');
+    renderLiveRSeg();
+    renderLiveSection();
+    $('lv-payout-modal').classList.add('open');
+  }
+  function closeLivePayout(){ $('lv-payout-modal').classList.remove('open'); }
+
+  // 区間結果と差玉の表示
+  function renderLiveSection(){
+    var L = state.live;
+    var secRot = L.hitRot - L.hitPrevRot;
+    var secUsed = L.hitPrevBalls - L.hitBalls;
+    $('lv-sec-rot').textContent = secRot > 0 ? secRot + '鳴き' : '---';
+    $('lv-sec-used').textContent = secUsed > 0 ? (secUsed / BALLS_PER_K).toFixed(1) + 'k' : '---';
+    var sr = (secRot > 0 && secUsed > 0) ? Math.round(secRot / (secUsed / BALLS_PER_K) * 10) / 10 : null;
+    $('lv-sec-rate').textContent = sr !== null ? sr.toFixed(2) : '---';
+    updateLivePayDiff();
+  }
+  // 確定後の総玉数（獲得出玉が入っていればそちら優先）
+  function livePayoutBalls(){
+    var L = state.live;
+    var g = $('lv-gain').value.trim();
+    if(g !== ''){
+      var gn = parseInt(g, 10);
+      return isNaN(gn) ? null : L.hitBalls + gn;
+    }
+    var choVal = $('lv-pay-cho').value.trim(), mochiVal = $('lv-pay-mochi').value.trim();
+    if(choVal === '' && mochiVal === '') return null;
+    return (parseInt(choVal, 10) || 0) + (parseInt(mochiVal, 10) || 0);
+  }
+  function updateLivePayDiff(){
+    var el = $('lv-pay-diff');
+    var b = livePayoutBalls();
+    if(b === null){ el.textContent = '---'; el.style.color = ''; return; }
+    setSigned(el, liveDiff(b), '玉');
+  }
+  function renderLiveGainTotal(){
+    var L = state.live;
+    var v = $('lv-gain').value.trim();
+    var g = parseInt(v, 10);
+    $('lv-gain-total').textContent = (v === '' || isNaN(g)) ? '---' : fmt(L.hitBalls + g) + '玉';
+  }
+
+  // R数ボタン（出玉から自動判定）
+  var liveRManual = false;
+  function renderLiveRSeg(){
+    var bar = $('lv-r-seg');
+    var sel = $('lv-r');
+    bar.innerHTML = ''; sel.innerHTML = '';
+    M().rOptions.forEach(function(r, i){
+      var o = document.createElement('option');
+      o.value = String(r); o.textContent = r + 'R';
+      if(i === M().rOptions.length - 1) o.selected = true;
+      sel.appendChild(o);
+      var b = document.createElement('button');
+      b.type = 'button'; b.textContent = r + 'R'; b.dataset.r = String(r);
+      b.addEventListener('click', function(){
+        sel.value = String(r); liveRManual = true;
+        renderLiveRActive(); renderLiveRHint();
+      });
+      bar.appendChild(b);
+    });
+    liveRManual = false;
+    renderLiveRActive(); renderLiveRHint();
+  }
+  function renderLiveRActive(){
+    var cur = $('lv-r').value;
+    [].forEach.call($('lv-r-seg').children, function(b){
+      b.className = (b.dataset.r === cur) ? 'on' : '';
+    });
+  }
+  function renderLiveRHint(){
+    var L = state.live;
+    var b = livePayoutBalls();
+    var gain = (b === null) ? 0 : b - L.hitBalls;
+    var r = parseInt($('lv-r').value, 10);
+    $('lv-r-hint').textContent = (gain > 0 && r > 0)
+      ? fmt(gain) + '玉 ÷ ' + r + 'R ＝ 1Rあたり ' + Math.round(gain / r) + '玉'
+        + (liveRManual ? '（手動）' : '（自動判定）')
+      : '出玉を入れるとR数を自動で判定します';
+  }
+  function autoPickLiveR(){
+    if(liveRManual) return;
+    var L = state.live;
+    var b = livePayoutBalls();
+    if(b === null) return;
+    var gain = b - L.hitBalls;
+    if(gain <= 0) return;
+    var g = guessR(gain);
+    if(g){ $('lv-r').value = String(g); renderLiveRActive(); }
+  }
+
+  function livePayoutConfirm(){
+    var L = state.live;
+    var balls = livePayoutBalls();
+    if(balls === null){ showErr('lv-pay-err', '玉数か獲得出玉を入れてください'); return; }
+    if(balls < 0){ showErr('lv-pay-err', '正しい数値を入れてください'); return; }
+
+    var cho, mochi;
+    var gainVal = $('lv-gain').value.trim();
+    if(gainVal !== ''){
+      cho = L.hitCho || 0;
+      mochi = Math.max(0, balls - cho);
+    }else{
+      cho = iv($('lv-pay-cho'));
+      mochi = iv($('lv-pay-mochi'));
+    }
+
+    var endRotVal = $('lv-endrot').value.trim();
+    var endRot = endRotVal === '' ? L.hitRot : parseInt(endRotVal, 10);
+    if(isNaN(endRot) || endRot < 0){ showErr('lv-pay-err', '終了後の鳴き数を正しく入れてください'); return; }
+    hideErr('lv-pay-err');
+
+    var r = parseInt($('lv-r').value, 10) || null;
+    L.history.push({
+      hitRot: L.hitRot,
+      hitBalls: L.hitBalls,
+      hitCho: L.hitCho || 0,
+      hitMochi: L.hitMochi || 0,
+      payoutBalls: balls,
+      payoutCho: cho,
+      payoutMochi: mochi,
+      r: r,
+      endRot: endRot
+    });
+    L.lastCho = cho;
+    L.isHit = false;
+    L.hitRot = 0; L.hitBalls = 0; L.hitCho = 0; L.hitMochi = 0;
+    recalcLive();
+    closeLivePayout();
+    save(); renderLive();
+  }
+
+  // 当たり記録ごと取り消し
+  function livePayoutCancel(){
+    var L = state.live;
+    L.isHit = false;
+    L.hitRot = 0; L.hitBalls = 0; L.hitCho = 0; L.hitMochi = 0;
+    recalcLive();
+    closeLivePayout();
+    save(); renderLive();
+  }
+
+  // ---------- 履歴の削除 ----------
+  var liveDelIndex = null;
+  function openLiveDel(i){
+    var h = state.live.history[i];
+    if(!h) return;
+    liveDelIndex = i;
+    $('lv-del-desc').textContent = h.hitRot + '鳴きの当たり（+' + fmt(h.gained) + '玉）を削除します';
+    $('lv-del-modal').classList.add('open');
+  }
+  function closeLiveDel(){ liveDelIndex = null; $('lv-del-modal').classList.remove('open'); }
+  function liveDelConfirm(){
+    if(liveDelIndex === null) return;
+    state.live.history.splice(liveDelIndex, 1);
+    recalcLive();
+    closeLiveDel();
+    save(); renderLive();
+  }
+
+  // ---------- セッション終了 ----------
+  function openLiveEnd(){
+    var L = state.live;
+    var rate = liveRate();
+    var border = nakiBorder();
+    setSigned($('lv-end-diff'), liveDiff(), '玉');
+    $('lv-end-rot').textContent = fmt(L.totalRot) + '鳴き';
+    $('lv-end-used').textContent = (L.totalUsed / BALLS_PER_K).toFixed(1) + 'k';
+    $('lv-end-rate').textContent = rate !== null ? rate.toFixed(2) + '鳴き/k' : '---';
+    $('lv-end-border').textContent = border !== null ? border.toFixed(2) + '鳴き/k' : '---';
+    $('lv-end-hits').textContent = L.history.length + '回';
+    $('lv-end-prob').textContent = (L.totalRot > 0 && L.history.length > 0)
+      ? '1/' + (L.totalRot / L.history.length).toFixed(1) : '---';
+    var rs = L.history.filter(function(h){ return h.r > 0; });
+    $('lv-end-avgr').textContent = rs.length
+      ? (rs.reduce(function(a, h){ return a + h.r; }, 0) / rs.length).toFixed(2) + 'R' : '---';
+    $('lv-end-avggain').textContent = L.history.length
+      ? fmt(Math.round(L.history.reduce(function(a, h){ return a + h.gained; }, 0) / L.history.length)) + '玉' : '---';
+    $('lv-end-no').value = '';
+    $('lv-end-memo').value = '';
+    $('lv-end-modal').classList.add('open');
+  }
+  function closeLiveEnd(){ $('lv-end-modal').classList.remove('open'); }
+
+  function liveEndSave(){
+    var L = state.live;
+    var rate = liveRate();
+    var d = new Date();
+    var list = loadSaved();
+    list.unshift({
+      no: $('lv-end-no').value.trim(),
+      memo: $('lv-end-memo').value.trim(),
+      rot: L.totalRot || null,
+      hits: L.history.length || null,
+      rate: rate,
+      border: nakiBorder(),
+      diff: liveDiff(),
+      date: (d.getMonth() + 1) + '/' + d.getDate()
+    });
+    storeSaved(list);
+    state.savedOpen = true;
+    liveEndReset();
+    renderSaved();
+  }
+  function liveEndReset(){
+    state.live = createLive();
+    closeLiveEnd();
+    save(); renderLive();
+  }
+
+  var LIVE_DRAFT_IDS = ['lv-start-rot','lv-start-cho','lv-start-mochi',
+    'lv-hit-rot','lv-hit-cho','lv-hit-mochi',
+    'lv-pay-cho','lv-pay-mochi','lv-gain','lv-endrot'];
+  function liveDraftValues(){
+    var o = {};
+    LIVE_DRAFT_IDS.forEach(function(id){
+      var el = $(id);
+      if(el && el.value !== '') o[id] = el.value;
+    });
+    return o;
+  }
+  function restoreLiveDraft(dr){
+    if(!dr || typeof dr !== 'object') return;
+    LIVE_DRAFT_IDS.forEach(function(id){
+      var el = $(id);
+      if(el) el.value = (dr[id] !== undefined) ? dr[id] : '';
+    });
+    [['lv-start-cho','lv-start-mochi','lv-start-total'],
+     ['lv-hit-cho','lv-hit-mochi','lv-hit-total'],
+     ['lv-pay-cho','lv-pay-mochi','lv-pay-total']].forEach(function(a){
+      var cv = parseInt($(a[0]).value, 10) || 0;
+      var mv = parseInt($(a[1]).value, 10) || 0;
+      $(a[2]).textContent = fmt(cv + mv);
+    });
+  }
+
+  function showErr(id, msg){ var el = $(id); el.textContent = msg; el.classList.add('on'); }
+  function hideErr(id){ var el = $(id); el.textContent = ''; el.classList.remove('on'); }
+
+  // 合計欄（貯玉＋持ち玉）の連動
+  function bindTotal(choId, mochiId, totalId, extra){
+    var cEl = $(choId), mEl = $(mochiId);
+    function upd(){
+      var cv = parseInt(cEl.value, 10) || 0;
+      var mv = parseInt(mEl.value, 10) || 0;
+      if(totalId) $(totalId).textContent = fmt(cv + mv);
+      if(extra) extra();
+    }
+    mEl.addEventListener('input', function(){
+      // 持ち玉を入れたとき、貯玉が空なら前回の貯玉を入れる
+      if(mEl.value.trim() !== '' && cEl.value.trim() === '' && state.live.lastCho > 0){
+        cEl.value = state.live.lastCho;
+      }
+      upd();
+    });
+    cEl.addEventListener('input', upd);
+  }
+
+  function initLive(){
+    bindTotal('lv-start-cho', 'lv-start-mochi', 'lv-start-total');
+    bindTotal('lv-hit-cho', 'lv-hit-mochi', 'lv-hit-total');
+    bindTotal('lv-pay-cho', 'lv-pay-mochi', 'lv-pay-total', function(){
+      autoPickLiveR(); renderLiveRActive(); renderLiveRHint(); updateLivePayDiff();
+    });
+
+    $('lv-start-btn').addEventListener('click', liveStart);
+    $('lv-hit-btn').addEventListener('click', openLiveHit);
+    $('lv-hit-confirm').addEventListener('click', liveHitConfirm);
+    $('lv-hit-cancel').addEventListener('click', closeLiveHit);
+    $('lv-pay-confirm').addEventListener('click', livePayoutConfirm);
+    $('lv-pay-cancel').addEventListener('click', livePayoutCancel);
+    $('lv-end-btn').addEventListener('click', openLiveEnd);
+    $('lv-end-cancel').addEventListener('click', closeLiveEnd);
+    $('lv-end-save').addEventListener('click', liveEndSave);
+    $('lv-end-reset').addEventListener('click', liveEndReset);
+    $('lv-del-yes').addEventListener('click', liveDelConfirm);
+    $('lv-del-no').addEventListener('click', closeLiveDel);
+    $('lv-hist-toggle').addEventListener('click', function(){
+      state.live.histOpen = !(state.live.histOpen !== false);
+      renderLiveHist(); save();
+    });
+    $('lv-gain-toggle').addEventListener('click', function(){
+      var f = $('lv-gain-fields'), t = $('lv-gain-toggle');
+      var open = f.style.display !== 'none';
+      f.style.display = open ? 'none' : 'block';
+      t.textContent = open ? '＋ 獲得出玉から計算する ▼' : '獲得出玉を使わない ▲';
+      if(open) $('lv-gain').value = '';
+      renderLiveGainTotal(); autoPickLiveR(); renderLiveRActive(); renderLiveRHint(); updateLivePayDiff();
+    });
+    $('lv-gain').addEventListener('input', function(){
+      renderLiveGainTotal(); autoPickLiveR(); renderLiveRActive(); renderLiveRHint(); updateLivePayDiff();
+    });
+    LIVE_DRAFT_IDS.forEach(function(id){
+      $(id).addEventListener('input', save);
+    });
+    // 貯玉のクリアボタン
+    document.querySelectorAll('.cho-clear-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var el = $(btn.getAttribute('data-target'));
+        if(el){ el.value = ''; el.dispatchEvent(new Event('input')); }
+      });
+    });
+  }
+
+  function calcAll(){ calcReverse(); calcEV(); }
+
+  $('btn-import').addEventListener('click', function(){
+    if(lastRate === null) return;
+    $('ev-rate').value = lastRate.toFixed(2);
+    calcEV(); save();
+  });
+
+  ['pickup','total-rot','diff','per-r','cnt2','cnt4','cnt9',
+   'ev-rot','ev-hits','ev-rate','ev-speed','ev-hours'].forEach(function(id){
+    $(id).addEventListener('input', function(){ calcAll(); save(); });
+  });
+  ['kk','cond'].forEach(function(id){
+    $(id).addEventListener('change', function(){ calcAll(); save(); });
+  });
+  $('in-balls').addEventListener('input', function(){
+    clearAddWarn();
+    var b = iv($('in-balls'));
+    if(!rManual && b > 0){
+      var g = guessR(b);
+      if(g) $('in-r').value = String(g);
+    }
+    renderRSegActive();
+    renderAutoRHint();
+    save();
+  });
+
+  // 入力中の出玉が何Rと判定されたかを表示
+  function renderAutoRHint(){
+    var b = iv($('in-balls'));
+    var hint = $('auto-r-hint');
+    var r = parseInt($('in-r').value, 10);
+    if(b > 0 && r > 0){
+      hint.textContent = fmt(b) + '玉 ÷ ' + r + 'R ＝ 1Rあたり ' + Math.round(b / r) + '玉'
+        + (rManual ? '（手動）' : '（自動判定）');
+    }else{
+      hint.textContent = '出玉からR数を自動で判定します';
+    }
+  }
+
+  function renderHitCount(){
+    $('hit-count-val').textContent = state.hist.length;
+  }
+
+  // R数の選択ボタンを作る（機種のR数に合わせる）
+  function renderRSeg(){
+    var bar = $('r-seg');
+    bar.innerHTML = '';
+    M().rOptions.forEach(function(r){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = r + 'R';
+      b.dataset.r = String(r);
+      b.addEventListener('click', function(){
+        $('in-r').value = String(r);
+        rManual = true;           // 手動で選んだら自動判定より優先
+        clearAddWarn();
+        renderRSegActive();
+        renderAutoRHint();
+        save();
+      });
+      bar.appendChild(b);
+    });
+    renderRSegActive();
+  }
+  function renderRSegActive(){
+    var cur = $('in-r').value;
+    [].forEach.call($('r-seg').children, function(b){
+      b.className = (b.dataset.r === cur) ? 'on' : '';
+    });
+  }
+  $('in-r').addEventListener('change', function(){ rManual = true; clearAddWarn(); save(); });
+  $('in-balls').addEventListener('keydown', function(e){ if(e.key === 'Enter') $('btn-add').click(); });
+
+  $('btn-reset').addEventListener('click', function(){
+    resetInputs();
+    applyMachine();
+    renderPay(); renderSign(); renderHist(); calcAll(); renderSaved(); renderAutoRHint(); save();
+  });
+
+  // ---------- 復帰時に入力を失わない ----------
+  function refresh(){
+    try{
+      var sm = localStorage.getItem(MACHINE_KEY);
+      if(sm && MACHINES[sm] && sm !== machineId){ machineId = sm; applyMachine(); renderMachineTabs(); }
+    }catch(e){}
+    load(); renderTab(); renderMode(); renderPay(); renderSign(); renderHist(); calcAll(); renderSaved(); renderLive();
+    if(state.tab === 'live' && state.live.started && state.live.isHit
+       && !$('lv-payout-modal').classList.contains('open')){
+      openLivePayout(true);
+    }
+  }
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'hidden') save(); else refresh();
+  });
+  window.addEventListener('pageshow', refresh);
+  window.addEventListener('pagehide', save);
+  window.addEventListener('blur', save);
+  window.addEventListener('beforeunload', save);
+
+  try{
+    var savedM = localStorage.getItem(MACHINE_KEY);
+    if(savedM && MACHINES[savedM]) machineId = savedM;
+  }catch(e){}
+  applyMachine();
+  renderMachineTabs();
+  load();
+  initLive();
+  renderTab(); renderMode(); renderPay(); renderSign(); renderHist(); calcAll();
+  renderAutoRHint(); renderSaved(); renderLive();
+
+  window.addEventListener('load', function(){
+    try{
+      if(navigator && navigator.serviceWorker && navigator.serviceWorker.register){
+        navigator.serviceWorker.register('./service-worker.js').catch(function(){});
+      }
+    }catch(e){}
+  });
+})();
+</script>
+</body>
+</html>
