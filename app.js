@@ -310,6 +310,14 @@ function renderHistory(tab) {
     if (h.per1r !== null && h.per1r !== undefined) {
       info += `　<span class="h-1r">1R：${Math.round(h.per1r)}玉</span>`;
     }
+    // 4行目：貯玉／持ち玉の内訳
+    if (h.hitCho !== undefined || h.payoutCho !== undefined) {
+      const n = (v) => (v || 0).toLocaleString();
+      info += `<br><span class="h-break" style="font-size:11px;color:#8f8fae;white-space:nowrap">`
+            + `当たり時　貯玉${n(h.hitCho)} / 持ち玉${n(h.hitMochi)}</span>`
+            + `<br><span class="h-break" style="font-size:11px;color:#8f8fae;white-space:nowrap">`
+            + `確定時　貯玉${n(h.payoutCho)} / 持ち玉${n(h.payoutMochi)}</span>`;
+    }
 
     const infoSpan = document.createElement('span');
     infoSpan.innerHTML = info;
@@ -1811,7 +1819,8 @@ function initKeyboardFix() {
   function kbHeight() {
     if (!vv) return 0;
     const h = window.innerHeight - vv.height - vv.offsetTop;
-    return h > 80 ? Math.round(h) : 0;
+    if (h <= 80) return 0;
+    return Math.round(Math.min(h, window.innerHeight * 0.6));   // 念のため上限
   }
   function ensureVisible(el) {
     if (!isField(el)) return;
