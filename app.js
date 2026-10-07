@@ -698,19 +698,23 @@ function handleHitUndo() {
 // ===== 出玉確定モーダル =====
 function openPayoutModal() {
   const tab = getTab();
-  document.getElementById('payout-cho-input').value = '';
-  document.getElementById('payout-mochi-input').value = '';
-  document.getElementById('payout-total').textContent = '0';
-  document.getElementById('payout-r-input').value = '';
-  document.getElementById('payout-endrot-input').value = '';
-  document.getElementById('payout-gain-input').value = '';
-  document.getElementById('gain-fields').style.display = 'none';
-  document.getElementById('gain-toggle').textContent = '＋ 獲得出玉から計算する ▼';
-  renderGainTotal();
-  clearError('payout-error');
-
-  renderPayoutSection(tab);
-  document.getElementById('payout-modal').classList.add('open');
+  try {
+    setVal('payout-cho-input', '');
+    setVal('payout-mochi-input', '');
+    setTxt('payout-total', '0');
+    setVal('payout-r-input', '');
+    setVal('payout-endrot-input', '');
+    setVal('payout-gain-input', '');
+    const gf = elById('gain-fields');
+    if (gf) gf.style.display = 'none';
+    setTxt('gain-toggle', '＋ 獲得出玉から計算する ▼');
+    renderGainTotal();
+    clearError('payout-error');
+    renderPayoutSection(tab);
+  } catch (e) {}
+  // 準備で何があっても出玉確定画面は必ず開く
+  const pm = elById('payout-modal');
+  if (pm) pm.classList.add('open');
 }
 
 // 出玉確定画面の「この区間の結果」を描画
@@ -731,7 +735,7 @@ function renderGainTotal() {
   const el = document.getElementById('gain-total');
   if (!el) return;
   const tab = getTab();
-  const v = document.getElementById('payout-gain-input').value.trim();
+  const v = getVal('payout-gain-input');
   const g = parseInt(v, 10);
   if (v === '' || isNaN(g) || !tab) { el.textContent = '---'; return; }
   el.textContent = (tab.hitBalls + g).toLocaleString() + '玉';
@@ -740,7 +744,7 @@ function renderGainTotal() {
 // 確定後の総持ち玉（獲得出玉が入っていればそちらを優先）
 function payoutBallsNow() {
   const tab = getTab();
-  const gainVal = document.getElementById('payout-gain-input').value.trim();
+  const gainVal = getVal('payout-gain-input');
   if (gainVal !== '') {
     const g = parseInt(gainVal, 10);
     if (!isNaN(g)) return tab.hitBalls + g;
@@ -771,11 +775,11 @@ function closePayoutModal() {
 }
 
 function handlePayoutConfirm() {
-  const choVal = document.getElementById('payout-cho-input').value.trim();
-  const mochiVal = document.getElementById('payout-mochi-input').value.trim();
-  const gainVal = document.getElementById('payout-gain-input').value.trim();
-  const rVal = document.getElementById('payout-r-input').value.trim();
-  const endRotVal = document.getElementById('payout-endrot-input').value.trim();
+  const choVal = getVal('payout-cho-input');
+  const mochiVal = getVal('payout-mochi-input');
+  const gainVal = getVal('payout-gain-input');
+  const rVal = getVal('payout-r-input');
+  const endRotVal = getVal('payout-endrot-input');
   clearError('payout-error');
 
   const t0 = getTab();
@@ -1563,17 +1567,17 @@ function initEvents() {
     document.getElementById(id).addEventListener('input', updatePayoutDiff);
   });
   // 獲得出玉の開閉と再計算
-  document.getElementById('gain-toggle').addEventListener('click', () => {
-    const f = document.getElementById('gain-fields');
-    const t = document.getElementById('gain-toggle');
+  onEl('gain-toggle', 'click', () => {
+    const f = elById('gain-fields');
+    if (!f) return;
     const open = f.style.display !== 'none';
     f.style.display = open ? 'none' : 'block';
-    t.textContent = open ? '＋ 獲得出玉から計算する ▼' : '獲得出玉を使わない ▲';
-    if (open) document.getElementById('payout-gain-input').value = '';
+    setTxt('gain-toggle', open ? '＋ 獲得出玉から計算する ▼' : '獲得出玉を使わない ▲');
+    if (open) setVal('payout-gain-input', '');
     renderGainTotal();
     updatePayoutDiff();
   });
-  document.getElementById('payout-gain-input').addEventListener('input', () => {
+  onEl('payout-gain-input', 'input', () => {
     renderGainTotal();
     updatePayoutDiff();
   });
@@ -1812,7 +1816,34 @@ function initSwipe() {
 }
 
 
-const APP_VERSION = 'v17';
+const APP_VERSION = 'v18';
+
+// ===== 要素が無くても落ちないための小道具 =====
+// （index.html が古いまま更新されていない場合でも画面が止まらないようにする）
+function elById(id) { return document.getElementById(id); }
+function setVal(id, v) { const el = elById(id); if (el) el.value = v; }
+function getVal(id) { const el = elById(id); return el ? String(el.value).trim() : ''; }
+function setTxt(id, v) { const el = elById(id); if (el) el.textContent = v; }
+function onEl(id, ev, fn) { const el = elById(id); if (el) el.addEventListener(ev, fn); }
+
+// index.html が古いままだと動かない機能があるので起動時に知らせる
+function checkHtmlVersion() {
+  const need = [
+    ['payout-gain-input', '獲得出玉の入力'],
+    ['payout-endrot-input', '時短終了後の回転数'],
+    ['sv-no', '台の記録'],
+    ['se-rot', '開始値の修正'],
+  ];
+  const missing = need.filter(([id]) => !elById(id)).map(([, name]) => name);
+  if (!missing.length) return;
+  const bar = document.createElement('div');
+  bar.id = 'html-stale-warn';
+  bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:9000;background:#7a1f1f;'
+    + 'color:#fff;font-size:13px;line-height:1.6;padding:12px 14px calc(env(safe-area-inset-bottom) + 12px);text-align:center;';
+  bar.textContent = '⚠️ index.html が古いため「' + missing.join('・')
+    + '」が使えません。index.html を更新してください';
+  document.body.appendChild(bar);
+}
 
 function showVersion() {
   const el = document.createElement('div');
@@ -1897,6 +1928,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initDraftWatchers();
   initKeyboardFix();
   showVersion();
+  checkHtmlVersion();
   try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
   renderAll();
   renderSavedMachines();
