@@ -147,13 +147,19 @@ function setDiffText(el, diff) {
 function renderTabs() {
   const bar = document.getElementById('tab-bar');
   bar.innerHTML = '';
+  const sel = document.createElement('select');
+  sel.id = 'tab-select';
+  sel.className = 'tab-select';
+  sel.setAttribute('aria-label', '台を選ぶ');
   state.tabs.forEach((tab, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'tab-btn' + (i === state.activeTab ? ' active' : '');
-    btn.textContent = tab.name;
-    btn.addEventListener('click', () => switchTab(i));
-    bar.appendChild(btn);
+    const op = document.createElement('option');
+    op.value = String(i);
+    op.textContent = tab.name + (tab.started ? '（計測中）' : '');
+    if (i === state.activeTab) op.selected = true;
+    sel.appendChild(op);
   });
+  sel.addEventListener('change', () => switchTab(parseInt(sel.value, 10)));
+  bar.appendChild(sel);
   updateTabbarHeight();
 }
 
@@ -1806,6 +1812,16 @@ function initSwipe() {
 }
 
 
+const APP_VERSION = 'v17';
+
+function showVersion() {
+  const el = document.createElement('div');
+  el.id = 'app-version';
+  el.textContent = 'ver ' + APP_VERSION;
+  el.style.cssText = 'text-align:center;font-size:11px;color:#6a6a86;padding:14px 0 24px;';
+  document.body.appendChild(el);
+}
+
 // ===== iOS キーボード対策 =====
 function initKeyboardFix() {
   const vv = window.visualViewport;
@@ -1836,10 +1852,20 @@ function initKeyboardFix() {
     if (sheet && sheet.scrollHeight > sheet.clientHeight + 2) sheet.scrollTop += over;
     else window.scrollBy(0, over);
   }
+  // モーダルの大きさは CSS 変数ではなく直接指定する
+  // （古い style.css が残っていてもキーボード分を二重に引かないようにするため）
+  function sizeModals(kb) {
+    document.querySelectorAll('.modal-overlay').forEach((ov) => {
+      ov.style.bottom = kb ? kb + 'px' : '';
+      ov.style.paddingBottom = kb ? '0px' : '';
+      const sh = ov.querySelector('.modal-sheet');
+      if (sh) sh.style.maxHeight = kb ? '100%' : '';
+    });
+  }
   function apply(doScroll) {
     const kb = kbHeight();
-    document.documentElement.style.setProperty('--kb', kb + 'px');
     spacer.style.height = kb ? (kb + 28) + 'px' : '0px';
+    sizeModals(kb);
     if (doScroll && kb) ensureVisible(document.activeElement);
   }
   if (vv) {
@@ -1870,6 +1896,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initSwipe();
   initDraftWatchers();
   initKeyboardFix();
+  showVersion();
   try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
   renderAll();
   renderSavedMachines();
